@@ -7,12 +7,15 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use regex::Regex;
 use std::fs::create_dir_all;
 use std::fs::{write, File};
 use std::io::Write;
 use std::thread::sleep;
 
 const OPENAI_API_KEY: &str = env!("OPENAI_API_KEY");
+const OPENAI_GPT_MODEL: &str = "gpt-3.5-turbo";
+// const OPENAI_GPT_MODEL: &str = "gpt-4";
 
 async fn get_problemset() -> Result<(), reqwest::Error> {
     let client = reqwest::Client::new();
@@ -149,7 +152,7 @@ async fn fetch_openai_completion(message: &str) -> Result<Value, Box<dyn Error>>
     );
 
     let data = json!({
-        "model": "gpt-3.5-turbo",
+        "model": OPENAI_GPT_MODEL,
         "messages": [
             {"role": "user", "content": message}
         ]
@@ -167,7 +170,7 @@ async fn fetch_openai_completion(message: &str) -> Result<Value, Box<dyn Error>>
     Ok(result)
 }
 
-fn extract_content(response: Value) -> Result<String, Box<dyn Error>> {
+fn extract_content(response: &Value) -> Result<String, Box<dyn Error>> {
     let content = response["choices"][0]["message"]["content"]
         .as_str()
         .ok_or("Unable to extract content")?
@@ -178,7 +181,16 @@ fn extract_content(response: Value) -> Result<String, Box<dyn Error>> {
 
 // Function to get the directory path
 fn get_directory_path(title_slug: &str) -> PathBuf {
-    Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/").join(title_slug).join("prompt")
+    Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
+        .join(title_slug)
+        .join("prompt")
+}
+
+// Function to get the directory path
+fn get_soln_directory_path(title_slug: &str) -> PathBuf {
+    Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
+        .join(title_slug)
+        .join("solutions")
 }
 
 // Function to get the prompt path
@@ -227,7 +239,9 @@ fn get_code_snippets(data: &Value) -> Option<&Value> {
 }
 
 fn get_code_for_lang(code_snippets: &Value, lang: &str) -> Result<String, Box<dyn Error>> {
-    code_snippets.as_array().ok_or("Expected array")?
+    code_snippets
+        .as_array()
+        .ok_or("Expected array")?
         .iter()
         .filter_map(|s| s.as_object())
         .find(|s| s.get("langSlug").and_then(Value::as_str) == Some(lang))
@@ -249,10 +263,26 @@ fn build_prompt(title_slug: &str, lang: &str) -> Result<(String, String), Box<dy
     Ok((content, code))
 }
 
+fn extract_codeblocks(text: &str) -> Vec<String> {
+    let codeblock_regex = Regex::new(r"```(?:\w*\n)?(.+?)```").unwrap();
+    codeblock_regex
+        .captures_iter(text)
+        .map(|cap| cap[1].to_string())
+        .collect()
+}
 
+async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Result<()> {
+    let dir_path = get_soln_directory_path(title_slug);
+    tokio::fs::create_dir_all(&dir_path).await?;
+    let file_path = dir_path.join(format!("{}_{}_{}.json", title_slug, lang, OPENAI_GPT_MODEL));
+    tokio::fs::write(file_path, v.to_string()).await
+}
 
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
+    let lang = "python3";
+    let title_slug = "two-sum";
+
     let client = reqwest::Client::new();
     let base = "https://leetcode.com/problems/";
 
@@ -282,8 +312,8 @@ async fn main() -> Result<(), reqwest::Error> {
         .as_array()
         .unwrap();
 
-    let (content, code) = build_prompt("3sum", "rust").unwrap();
-    let full_prompt = format!("{}\n\n{}", content, code);
+    let (content, code) = build_prompt(&title_slug, &lang).unwrap();
+    let full_prompt = format!("{}\n\n{}\n\nWrite out full solution in a markdown codeblock:", content, code);
     println!("{}", full_prompt);
     // for q in questions.iter().progress() {
     //     // println!("{}", q["titleSlug"].as_str().unwrap());
@@ -298,9 +328,17 @@ async fn main() -> Result<(), reqwest::Error> {
         })
         .collect();
 
-    let v = fetch_openai_completion(&full_prompt).await.unwrap();
-    println!("{:?}", v);
-    println!("{:?}", extract_content(v));
-    
+    // let v = fetch_openai_completion(&full_prompt).await.unwrap();
+    // println!("{:?}", v);
+    // let c = extract_content(&v).unwrap();
+    // let cbs = extract_codeblocks(&c);
+    // println!("{:?}", cbs);
+    // save_solution(&title_slug, &lang, &v).await.unwrap();
+    // println!("{:?}", v);
+    // println!("{:?}", extract_content(v));
+    let test_str = r#"## Approach 1: Brute Force\n\nOne simple solution is to use 2 nested loops and check every possible pair of numbers to see if they add up to the target. However, this has a time complexity of O(n^2), which may not be efficient for larger input sizes.\n\n## Approach 2: Two-pass Hash Table\n\nTo improve the time complexity, we can use a hash table to store the indices of each number in the input array. We can then iterate through the array again and check if the difference between the target and the current number exists in the hash table. If it does, we have found a pair of numbers that add up to the target. \n\nTime complexity of this approach is O(n), since we iterate through the input array twice at most.\n\n## Approach 3: One-pass Hash Table\n\nWe can further optimize the hash table approach to use only a single iteration through the input array. As we iterate through the array, we can check if the difference between the target and the current number exists in the hash table. If it does, we have found a pair of numbers that add up to the target. Otherwise, we add the current number and its index to the hash table.\n\nTime complexity of this approach is O(n), since we iterate through the input array only once. \n\n```python\nclass Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        # initialize an empty hash table to store the indices of each number\n        hash_table = {}\n        \n        # iterate through the input array\n        for i in range(len(nums)):\n            # calculate the difference between the target and the current number\n            difference = target - nums[i]\n            \n            # check if the difference exists in the hash table\n            if difference in hash_table:\n                # if it does, return the pair of indices\n                return [hash_table[difference], i]\n            \n            # otherwise, add the current number and its index to the hash table\n            hash_table[nums[i]] = i\n```"#;
+    let cbs = extract_codeblocks(&test_str);
+    println!("{:?}", cbs);
+
     Ok(())
 }
