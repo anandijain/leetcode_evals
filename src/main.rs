@@ -264,17 +264,22 @@ fn build_prompt(title_slug: &str, lang: &str) -> Result<(String, String), Box<dy
 }
 
 fn extract_codeblocks(text: &str) -> Vec<String> {
-    let codeblock_regex = Regex::new(r"```(?:\w*\n)?(.+?)```").unwrap();
+    let codeblock_regex = Regex::new(r"```(?:\w*\n)?((?s:.+?))```").unwrap();
     codeblock_regex
         .captures_iter(text)
         .map(|cap| cap[1].to_string())
         .collect()
 }
 
+
+fn soln_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
+    get_soln_directory_path(title_slug).join(format!("{}_{}_{}.json", title_slug, lang, model))
+}
+
 async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Result<()> {
     let dir_path = get_soln_directory_path(title_slug);
     tokio::fs::create_dir_all(&dir_path).await?;
-    let file_path = dir_path.join(format!("{}_{}_{}.json", title_slug, lang, OPENAI_GPT_MODEL));
+    let file_path = dir_path.join(soln_fn(title_slug, lang, OPENAI_GPT_MODEL));
     tokio::fs::write(file_path, v.to_string()).await
 }
 
@@ -313,7 +318,10 @@ async fn main() -> Result<(), reqwest::Error> {
         .unwrap();
 
     let (content, code) = build_prompt(&title_slug, &lang).unwrap();
-    let full_prompt = format!("{}\n\n{}\n\nWrite out full solution in a markdown codeblock:", content, code);
+    let full_prompt = format!(
+        "{}\n\n{}\n\nWrite out full solution in a markdown codeblock:",
+        content, code
+    );
     println!("{}", full_prompt);
     // for q in questions.iter().progress() {
     //     // println!("{}", q["titleSlug"].as_str().unwrap());
@@ -336,9 +344,27 @@ async fn main() -> Result<(), reqwest::Error> {
     // save_solution(&title_slug, &lang, &v).await.unwrap();
     // println!("{:?}", v);
     // println!("{:?}", extract_content(v));
-    let test_str = r#"## Approach 1: Brute Force\n\nOne simple solution is to use 2 nested loops and check every possible pair of numbers to see if they add up to the target. However, this has a time complexity of O(n^2), which may not be efficient for larger input sizes.\n\n## Approach 2: Two-pass Hash Table\n\nTo improve the time complexity, we can use a hash table to store the indices of each number in the input array. We can then iterate through the array again and check if the difference between the target and the current number exists in the hash table. If it does, we have found a pair of numbers that add up to the target. \n\nTime complexity of this approach is O(n), since we iterate through the input array twice at most.\n\n## Approach 3: One-pass Hash Table\n\nWe can further optimize the hash table approach to use only a single iteration through the input array. As we iterate through the array, we can check if the difference between the target and the current number exists in the hash table. If it does, we have found a pair of numbers that add up to the target. Otherwise, we add the current number and its index to the hash table.\n\nTime complexity of this approach is O(n), since we iterate through the input array only once. \n\n```python\nclass Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        # initialize an empty hash table to store the indices of each number\n        hash_table = {}\n        \n        # iterate through the input array\n        for i in range(len(nums)):\n            # calculate the difference between the target and the current number\n            difference = target - nums[i]\n            \n            # check if the difference exists in the hash table\n            if difference in hash_table:\n                # if it does, return the pair of indices\n                return [hash_table[difference], i]\n            \n            # otherwise, add the current number and its index to the hash table\n            hash_table[nums[i]] = i\n```"#;
-    let cbs = extract_codeblocks(&test_str);
+    // let test_str = r#"## Approach 1: Brute Force\n\nOne simple solution is to use 2 nested loops and check every possible pair of numbers to see if they add up to the target. However, this has a time complexity of O(n^2), which may not be efficient for larger input sizes.\n\n## Approach 2: Two-pass Hash Table\n\nTo improve the time complexity, we can use a hash table to store the indices of each number in the input array. We can then iterate through the array again and check if the difference between the target and the current number exists in the hash table. If it does, we have found a pair of numbers that add up to the target. \n\nTime complexity of this approach is O(n), since we iterate through the input array twice at most.\n\n## Approach 3: One-pass Hash Table\n\nWe can further optimize the hash table approach to use only a single iteration through the input array. As we iterate through the array, we can check if the difference between the target and the current number exists in the hash table. If it does, we have found a pair of numbers that add up to the target. Otherwise, we add the current number and its index to the hash table.\n\nTime complexity of this approach is O(n), since we iterate through the input array only once. \n\n```python\nclass Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        # initialize an empty hash table to store the indices of each number\n        hash_table = {}\n        \n        # iterate through the input array\n        for i in range(len(nums)):\n            # calculate the difference between the target and the current number\n            difference = target - nums[i]\n            \n            # check if the difference exists in the hash table\n            if difference in hash_table:\n                # if it does, return the pair of indices\n                return [hash_table[difference], i]\n            \n            # otherwise, add the current number and its index to the hash table\n            hash_table[nums[i]] = i\n```"#;
+    // let test_str = std::fs::read_to_string("extract_test.txt").unwrap();
+    let test_fn = soln_fn(title_slug, "python3", "gpt-3.5-turbo");
+    println!("{:?}", test_fn);
+    let test_j: Value = serde_json::from_str(&std::fs::read_to_string(test_fn).unwrap()).unwrap();
+    let c = extract_content(&test_j).unwrap();
+    // println!("{}", c);
+    let cbs = extract_codeblocks(&c);
+
     println!("{:?}", cbs);
+    // let s = skip_first_line(&cbs[0]);
+    // let test_str = std::fs::read_to_string().unwrap();
+    // println!("{:?}", s);
+    // for cb in cbs {
+    //     // cb.lines().for_each(|l| println!("{}", l));
+    //     cb.lines()
+    //         .enumerate()
+    //         .for_each(|(idx, l)| println!("{}: {}", idx, l));
+
+    //     // println!("{:?}", s);
+    // }
 
     Ok(())
 }
