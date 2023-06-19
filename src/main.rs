@@ -197,8 +197,12 @@ fn get_soln_directory_path(title_slug: &str) -> PathBuf {
 fn get_prompt_path(title_slug: &str) -> PathBuf {
     let dir_path = get_directory_path(title_slug);
     let f = dir_path.join(format!("{}_prompt.json", title_slug));
-    println!("{:?}", f);
+    // println!("{:?}", f);
     f
+}
+
+fn get_title_slug(question: &Value) -> String {
+    question["titleSlug"].as_str().unwrap().to_string()
 }
 
 // Function to get the code path
@@ -238,6 +242,10 @@ fn get_code_snippets(data: &Value) -> Option<&Value> {
     data.get("data")?.get("question")?.get("codeSnippets")
 }
 
+// fn get_code_snippets_from_question(question: &Value) -> Option<&Value> {
+//     get_code_snippets(get_code(&get_title_slug(question)).unwrap())
+// }
+
 fn get_code_for_lang(code_snippets: &Value, lang: &str) -> Result<String, Box<dyn Error>> {
     code_snippets
         .as_array()
@@ -248,6 +256,13 @@ fn get_code_for_lang(code_snippets: &Value, lang: &str) -> Result<String, Box<dy
         .and_then(|s| s.get("code").and_then(Value::as_str))
         .map(str::to_string)
         .ok_or_else(|| "No matching snippet for the specified language".into())
+}
+
+fn has_lang(code_snippets: &Value, lang: &str) -> bool {
+    match get_code_for_lang(code_snippets, lang) {
+        Ok(_) => true,
+        Err(_) => false,
+    }
 }
 
 fn build_prompt(title_slug: &str, lang: &str) -> Result<(String, String), Box<dyn Error>> {
@@ -279,13 +294,14 @@ async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Resu
     let dir_path = get_soln_directory_path(title_slug);
     tokio::fs::create_dir_all(&dir_path).await?;
     let file_path = dir_path.join(soln_fn(title_slug, lang, OPENAI_GPT_MODEL));
+    println!("{:?}", file_path);
     tokio::fs::write(file_path, v.to_string()).await
 }
 
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
     let lang = "python3";
-    let title_slug = "two-sum";
+    let start_title_slug = "dungeon-game";
 
     let client = reqwest::Client::new();
     let base = "https://leetcode.com/problems/";
@@ -319,21 +335,33 @@ async fn main() -> Result<(), reqwest::Error> {
     let free_questions: Vec<_> = questions
         .iter()
         .filter(|q| match q["paidOnly"].as_bool() {
-            Some(paid_only) => !paid_only,
+            Some(paid_only) => {
+                !paid_only
+                    && has_lang(
+                        get_code_snippets(&get_code(&get_title_slug(q)).unwrap()).unwrap(),
+                        lang,
+                    )
+            }
             None => false,
         })
         .collect();
 
-    for q in free_questions.iter().progress() {
+    let start_index = free_questions
+        .iter()
+        .position(|q| q["titleSlug"].as_str().unwrap() == start_title_slug)
+        .unwrap();
+    let mut i = 0;
+    for q in free_questions.iter().skip(start_index).progress() {
         let title_slug = q["titleSlug"].as_str().unwrap();
-        let (content, code) = build_prompt(&title_slug, &lang).unwrap();
+        // println!("{}: {}", i, title_slug);
+        let (content, _code) = build_prompt(&title_slug, &lang).unwrap();
         let full_prompt = format!(
             "{}\n\n{}\n\nWrite out full solution in a markdown codeblock:",
-            content, code
+            content, _code
         );
         let v = fetch_openai_completion(&full_prompt).await.unwrap();
         save_solution(&title_slug, &lang, &v).await.unwrap();
-
+        i += 1;
     }
     Ok(())
 }
