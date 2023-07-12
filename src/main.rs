@@ -1,5 +1,5 @@
 use indicatif::{self, ProgressIterator};
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFERER};
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFERER, USER_AGENT};
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -7,6 +7,8 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use chrono::prelude::*;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::fs::create_dir_all;
 use std::fs::{write, File};
@@ -16,22 +18,30 @@ use std::thread::sleep;
 const OPENAI_API_KEY: &str = env!("OPENAI_API_KEY");
 const OPENAI_GPT_MODEL: &str = "gpt-3.5-turbo";
 // const OPENAI_GPT_MODEL: &str = "gpt-4";
+const CSRF_TOKEN: &str = "vqXWMXcAkYJu75Pid4qoJCDpQgceZ0zFqgN2AeaPELpaE89289U7USSjkdYDrXXo";
+const COOKIE: &str = "csrftoken=vqXWMXcAkYJu75Pid4qoJCDpQgceZ0zFqgN2AeaPELpaE89289U7USSjkdYDrXXo; messages=\"ce012aae62d93e5358036fbb514a4ba766fad69e$[[\\\"__json_message\\\",0,25,\\\"Successfully signed in as anandjain.\\\"],[\\\"__json_message\\\",0,25,\\\"Successfully signed in as anandjain.\\\"]]; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMzYwNTc2OCIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImRqYW5nby5jb250cmliLmF1dGguYmFja2VuZHMuTW9kZWxCYWNrZW5kIiwiX2F1dGhfdXNlcl9oYXNoIjoiMjEwNWIxYWQ3ZjNhOWNhMmZiMzc1N2FhNzEzZjQ4MmFiNTMxOWVmNyIsImlkIjozNjA1NzY4LCJlbWFpbCI6ImRhaG1laC5hbG1vc0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kamFpbiIsInVzZXJfc2x1ZyI6ImFuYW5kamFpbiIsImF2YXRhciI6Imh0dHBzOi8vYXNzZXRzLmxlZXRjb2RlLmNvbS91c2Vycy9hdmF0YXJzL2F2YXRhcl8xNjc4OTA5MTg5LnBuZyIsInJlZnJlc2hlZF9hdCI6MTY4OTEzODk2MSwiaXAiOiI2Ni4zMC4yMjMuOSIsImlkZW50aXR5IjoiNWYwZmY1ZDg3OTllZDRjMGVkMzU1ZmE0NzRhN2JiYzIiLCJzZXNzaW9uX2lkIjo0MjQzNjg5NCwiX3Nlc3Npb25fZXhwaXJ5IjoxMjA5NjAwfQ.NLrgwyu-mQchlpOr0LzaB_FGUOdguZlWmGNGkYZEDLs; _dd_s=rum=1&id=0117f673-b41c-4903-a298-74dc9c61d369&created=1689138954646&expire=1689139941224";
+const TOKEN: &str = "vqXWMXcAkYJu75Pid4qoJCDpQgceZ0zFqgN2AeaPELpaE89289U7USSjkdYDrXXo";
+
+const USER_AGENT_STR: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36";
+
+static SLUG_ID_MAP: Lazy<HashMap<String, String>> = Lazy::new(|| {
+    let data = fs::read_to_string("problemset.json").expect("Failed to read problemset.json");
+    let v: Value = serde_json::from_str(&data).expect("Failed to parse JSON data");
+    build_slug_to_id_map(&v)
+});
 
 async fn get_problemset() -> Result<(), reqwest::Error> {
     let client = reqwest::Client::new();
     let base = "https://leetcode.com/problems/";
 
-    let cookie = "csrftoken=U38VtRxr5YfvLADqqgCQvJkSHYwu3X6laeFJqGf464BYKRZ0IGF23hu9DUdQKBJJ; messages=\"12877f56d355501b9812ecfb2d621ba942950006$[[\\\"__json_message\\\",0,25,\\\"Successfully signed in as anandjain.\\\"]]\"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMzYwNTc2OCIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImRqYW5nby5jb250cmliLmF1dGguYmFja2VuZHMuTW9kZWxCYWNrZW5kIiwiX2F1dGhfdXNlcl9oYXNoIjoiMjEwNWIxYWQ3ZjNhOWNhMmZiMzc1N2FhNzEzZjQ4MmFiNTMxOWVmNyIsImlkIjozNjA1NzY4LCJlbWFpbCI6ImRhaG1laC5hbG1vc0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kamFpbiIsInVzZXJfc2x1ZyI6ImFuYW5kamFpbiIsImF2YXRhciI6Imh0dHBzOi8vYXNzZXRzLmxlZXRjb2RlLmNvbS91c2Vycy9hdmF0YXJzL2F2YXRhcl8xNjc4OTA5MTg5LnBuZyIsInJlZnJlc2hlZF9hdCI6MTY4MDk3NTA3MiwiaXAiOiI1MC4xNzAuNDQuMjEwIiwiaWRlbnRpdHkiOiI3MjNjNTEyNjNjODBmNmJlNzlmYTIxMTkxZWUwYjM4NyIsInNlc3Npb25faWQiOjM3Nzk3NzYzLCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.9HpZ8N5J9Lzfz7LHcNryx9sjIDtshhXLfQ3MSmBMFkE; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1681147877868";
-    let token = "U38VtRxr5YfvLADqqgCQvJkSHYwu3X6laeFJqGf464BYKRZ0IGF23hu9DUdQKBJJ";
-
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    headers.insert("cookie", HeaderValue::from_static(cookie));
+    headers.insert("cookie", HeaderValue::from_static(COOKIE));
     headers.insert(
         REFERER,
         HeaderValue::from_static("https://leetcode.com/problemset/all/"),
     );
-    headers.insert("x-csrftoken", HeaderValue::from_static(token));
+    headers.insert("x-csrftoken", HeaderValue::from_static(TOKEN));
 
     let data = json!({
         "query": "\n    query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {\n  problemsetQuestionList: questionList(\n    categorySlug: $categorySlug\n    limit: $limit\n    skip: $skip\n    filters: $filters\n  ) {\n    total: totalNum\n    questions: data {\n      acRate\n      difficulty\n      freqBar\n      frontendQuestionId: questionFrontendId\n      isFavor\n      paidOnly: isPaidOnly\n      status\n      title\n      titleSlug\n      topicTags {\n        name\n        id\n        slug\n      }\n      hasSolution\n      hasVideoSolution\n    }\n  }\n}\n",
@@ -59,21 +69,34 @@ async fn get_problemset() -> Result<(), reqwest::Error> {
     Ok(())
 }
 
+pub fn build_slug_to_id_map(v: &Value) -> HashMap<String, String> {
+    let mut slug_to_id = HashMap::new();
+
+    if let Value::Array(questions) = &v["data"]["problemsetQuestionList"]["questions"] {
+        for question in questions {
+            if let (Value::String(slug), Value::String(id)) =
+                (&question["titleSlug"], &question["frontendQuestionId"])
+            {
+                slug_to_id.insert(slug.clone(), id.clone());
+            }
+        }
+    }
+
+    slug_to_id
+}
+
 async fn get_problems_and_code() -> Result<(), reqwest::Error> {
     let client = reqwest::Client::new();
     let base = "https://leetcode.com/problems/";
 
-    let cookie = "csrftoken=U38VtRxr5YfvLADqqgCQvJkSHYwu3X6laeFJqGf464BYKRZ0IGF23hu9DUdQKBJJ; messages=\"12877f56d355501b9812ecfb2d621ba942950006$[[\\\"__json_message\\\",0,25,\\\"Successfully signed in as anandjain.\\\"]]\"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMzYwNTc2OCIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImRqYW5nby5jb250cmliLmF1dGguYmFja2VuZHMuTW9kZWxCYWNrZW5kIiwiX2F1dGhfdXNlcl9oYXNoIjoiMjEwNWIxYWQ3ZjNhOWNhMmZiMzc1N2FhNzEzZjQ4MmFiNTMxOWVmNyIsImlkIjozNjA1NzY4LCJlbWFpbCI6ImRhaG1laC5hbG1vc0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kamFpbiIsInVzZXJfc2x1ZyI6ImFuYW5kamFpbiIsImF2YXRhciI6Imh0dHBzOi8vYXNzZXRzLmxlZXRjb2RlLmNvbS91c2Vycy9hdmF0YXJzL2F2YXRhcl8xNjc4OTA5MTg5LnBuZyIsInJlZnJlc2hlZF9hdCI6MTY4MDk3NTA3MiwiaXAiOiI1MC4xNzAuNDQuMjEwIiwiaWRlbnRpdHkiOiI3MjNjNTEyNjNjODBmNmJlNzlmYTIxMTkxZWUwYjM4NyIsInNlc3Npb25faWQiOjM3Nzk3NzYzLCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.9HpZ8N5J9Lzfz7LHcNryx9sjIDtshhXLfQ3MSmBMFkE; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1681147877868";
-    let token = "U38VtRxr5YfvLADqqgCQvJkSHYwu3X6laeFJqGf464BYKRZ0IGF23hu9DUdQKBJJ";
-
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    headers.insert("cookie", HeaderValue::from_static(cookie));
+    headers.insert("cookie", HeaderValue::from_static(COOKIE));
     headers.insert(
         REFERER,
         HeaderValue::from_static("https://leetcode.com/problemset/all/"),
     );
-    headers.insert("x-csrftoken", HeaderValue::from_static(token));
+    headers.insert("x-csrftoken", HeaderValue::from_static(TOKEN));
 
     let v: Value =
         serde_json::from_str(&std::fs::read_to_string("problemset.json").unwrap()).unwrap();
@@ -286,28 +309,75 @@ fn extract_codeblocks(text: &str) -> Vec<String> {
         .collect()
 }
 
-fn soln_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
+fn get_soln_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
     get_soln_directory_path(title_slug).join(format!("{}_{}_{}.json", title_slug, lang, model))
 }
 
 async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Result<()> {
     let dir_path = get_soln_directory_path(title_slug);
     tokio::fs::create_dir_all(&dir_path).await?;
-    let file_path = dir_path.join(soln_fn(title_slug, lang, OPENAI_GPT_MODEL));
+    let file_path = dir_path.join(get_soln_fn(title_slug, lang, OPENAI_GPT_MODEL));
     println!("{:?}", file_path);
     tokio::fs::write(file_path, v.to_string()).await
 }
 
-#[tokio::main]
-async fn main() -> Result<(), reqwest::Error> {
-    let lang = "python3";
-    let start_title_slug = "dungeon-game";
+fn build_post_body(title_slug: &str, lang: &str, model: &str) -> Value {
+    let soln_path = get_soln_fn(title_slug, lang, model);
+    let soln_text = fs::read_to_string(soln_path).expect("Failed to read solution file");
+    let code_blocks = extract_codeblocks(&soln_text);
+
+    let typed_code = code_blocks.last();
+
+    let question_id = SLUG_ID_MAP
+        .get(title_slug)
+        .expect("Title slug not found in global map");
+
+    json!({
+        "question_id": question_id,
+        "lang": lang,
+        "typed_code": typed_code
+    })
+}
+
+pub async fn submit_solution(slug: &str, lang: &str, model: &str) -> Result<Value, Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+    let post_body = build_post_body(slug, lang, model);
+    
+    let referer_url = format!("https://leetcode.com/problems/{}/", slug);
+
+    // Build the headers
+    let mut headers = HeaderMap::new();
+    headers.insert("X-CSRFToken", HeaderValue::from_static(CSRF_TOKEN));
+    headers.insert("Cookie", HeaderValue::from_static(COOKIE));
+    headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    
+    headers.insert(REFERER, HeaderValue::from_str(&referer_url)?);
+
+    println!("{:#?}", post_body);
+    let url = format!("https://leetcode.com/problems/{}/submit/", slug);
+    let response = client
+        .post(&url)
+        .headers(headers)
+        .body(post_body.to_string())
+        .send()
+        .await?;
+
+    let response_text = response.text().await?;
+    println!("{}", response_text);
+    let json_response = serde_json::from_str(&response_text)?;
+
+    Ok(json_response)
+}
+
+// #[tokio::main]
+async fn old_main() -> Result<(), reqwest::Error> {
+    let langs = vec!["java", "cpp"];
+    // let start_title_slug = "kth-missing-positive-number";
+    let start_index = 0;
 
     let client = reqwest::Client::new();
     let base = "https://leetcode.com/problems/";
-
-    let cookie = "csrftoken=U38VtRxr5YfvLADqqgCQvJkSHYwu3X6laeFJqGf464BYKRZ0IGF23hu9DUdQKBJJ; messages=\"12877f56d355501b9812ecfb2d621ba942950006$[[\\\"__json_message\\\",0,25,\\\"Successfully signed in as anandjain.\\\"]]\"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMzYwNTc2OCIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImRqYW5nby5jb250cmliLmF1dGguYmFja2VuZHMuTW9kZWxCYWNrZW5kIiwiX2F1dGhfdXNlcl9oYXNoIjoiMjEwNWIxYWQ3ZjNhOWNhMmZiMzc1N2FhNzEzZjQ4MmFiNTMxOWVmNyIsImlkIjozNjA1NzY4LCJlbWFpbCI6ImRhaG1laC5hbG1vc0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kamFpbiIsInVzZXJfc2x1ZyI6ImFuYW5kamFpbiIsImF2YXRhciI6Imh0dHBzOi8vYXNzZXRzLmxlZXRjb2RlLmNvbS91c2Vycy9hdmF0YXJzL2F2YXRhcl8xNjc4OTA5MTg5LnBuZyIsInJlZnJlc2hlZF9hdCI6MTY4MDk3NTA3MiwiaXAiOiI1MC4xNzAuNDQuMjEwIiwiaWRlbnRpdHkiOiI3MjNjNTEyNjNjODBmNmJlNzlmYTIxMTkxZWUwYjM4NyIsInNlc3Npb25faWQiOjM3Nzk3NzYzLCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.9HpZ8N5J9Lzfz7LHcNryx9sjIDtshhXLfQ3MSmBMFkE; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1681147877868";
-    let token = "U38VtRxr5YfvLADqqgCQvJkSHYwu3X6laeFJqGf464BYKRZ0IGF23hu9DUdQKBJJ";
 
     let mut oai_headers = HeaderMap::new();
     oai_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -318,50 +388,70 @@ async fn main() -> Result<(), reqwest::Error> {
 
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    headers.insert("cookie", HeaderValue::from_static(cookie));
+    headers.insert("cookie", HeaderValue::from_static(COOKIE));
     headers.insert(
         REFERER,
         HeaderValue::from_static("https://leetcode.com/problemset/all/"),
     );
-    headers.insert("x-csrftoken", HeaderValue::from_static(token));
+    headers.insert("x-csrftoken", HeaderValue::from_static(TOKEN));
 
     let v: Value =
         serde_json::from_str(&std::fs::read_to_string("problemset.json").unwrap()).unwrap();
 
-    let questions = v["data"]["problemsetQuestionList"]["questions"]
-        .as_array()
-        .unwrap();
+    for lang in langs {
+        let questions = v["data"]["problemsetQuestionList"]["questions"]
+            .as_array()
+            .unwrap();
 
-    let free_questions: Vec<_> = questions
-        .iter()
-        .filter(|q| match q["paidOnly"].as_bool() {
-            Some(paid_only) => {
-                !paid_only
-                    && has_lang(
-                        get_code_snippets(&get_code(&get_title_slug(q)).unwrap()).unwrap(),
-                        lang,
-                    )
-            }
-            None => false,
-        })
-        .collect();
+        let free_questions: Vec<_> = questions
+            .iter()
+            .filter(|q| match q["paidOnly"].as_bool() {
+                Some(paid_only) => {
+                    !paid_only
+                        && has_lang(
+                            get_code_snippets(&get_code(&get_title_slug(q)).unwrap()).unwrap(),
+                            lang,
+                        )
+                }
+                None => false,
+            })
+            .collect();
 
-    let start_index = free_questions
-        .iter()
-        .position(|q| q["titleSlug"].as_str().unwrap() == start_title_slug)
-        .unwrap();
-    let mut i = 0;
-    for q in free_questions.iter().skip(start_index).progress() {
-        let title_slug = q["titleSlug"].as_str().unwrap();
-        // println!("{}: {}", i, title_slug);
-        let (content, _code) = build_prompt(&title_slug, &lang).unwrap();
-        let full_prompt = format!(
-            "{}\n\n{}\n\nWrite out full solution in a markdown codeblock:",
-            content, _code
-        );
-        let v = fetch_openai_completion(&full_prompt).await.unwrap();
-        save_solution(&title_slug, &lang, &v).await.unwrap();
-        i += 1;
+        // let start_index = free_questions
+        //     .iter()
+        //     .position(|q| q["titleSlug"].as_str().unwrap() == start_title_slug)
+        //     .unwrap();
+
+        let mut times = vec![];
+        let mut i = 0;
+        for q in free_questions.iter().skip(start_index).progress() {
+            let title_slug = q["titleSlug"].as_str().unwrap();
+            // println!("{}: {}", i, title_slug);
+            let (content, _code) = build_prompt(&title_slug, &lang).unwrap();
+            let full_prompt = format!(
+                "{}\n\n{}\n\nWrite out full solution in a markdown codeblock:",
+                content, _code
+            );
+            let v = match fetch_openai_completion(&full_prompt).await {
+                Ok(val) => val,
+                Err(e) => {
+                    eprintln!("Failed to fetch OpenAI completion: {} {}", e, title_slug);
+                    continue; // or however you want to handle the error
+                }
+            };
+            let local = Local::now();
+            times.push(local);
+            println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+            save_solution(&title_slug, &lang, &v).await.unwrap();
+            i += 1;
+        }
     }
+    Ok(())
+}
+
+#[tokio::main]
+pub async fn main() -> Result<(), reqwest::Error> {
+    let v = submit_solution("two-sum", "python3", OPENAI_GPT_MODEL).await.unwrap();
+    println!("{:?}", v);
     Ok(())
 }
