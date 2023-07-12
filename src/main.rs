@@ -668,42 +668,55 @@ fn get_common_questions(langs: Vec<&str>) -> Vec<Value> {
 
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
-    println!("{:#?}", tally_langs());
+    // println!("{:#?}", tally_langs());
 
-    let all_langs_done: Vec<&str> = vec!["c", "cpp", "java", "javascript", "python3", "rust"];
-    let qs = get_common_questions(all_langs_done);
+    let langs: Vec<&str> = vec!["c", "cpp", "java", "javascript", "python3", "rust"];
+    let qs = get_common_questions(langs.clone());
+    let start_index = qs
+        .iter()
+        .position(|q| q["titleSlug"].as_str().unwrap() == "3sum-closest")
+        .unwrap();
+    // let start_index = 15;
 
     println!("{:#?}", qs[0]);
+    println!("Start index: {:#?}", start_index);
     println!("Questions in testset: {:#?}", qs.len());
 
-    let lang = "python3";
+    // let lang = "python3";
     let model = OPENAI_GPT_MODEL;
     // // solve("longest-substring-without-repeating-characters", lang, model).await.unwrap();
+    for q in qs.iter().skip(start_index - 1).progress() {
+        for lang in langs.clone() {
+            let title_slug = q["titleSlug"].as_str().unwrap();
+            let soln_fn = get_soln_fn(title_slug, lang, model);
+            println!("{:?}", soln_fn);
 
-    for q in qs.iter().skip(0).progress() {
-        let title_slug = q["titleSlug"].as_str().unwrap();
-        let soln_fn = get_soln_fn(title_slug, lang, model);
-        println!("{:?}", soln_fn);
-
-        let sub_path = get_submission_directory_path(title_slug);
-        // create_dir_all(&sub_path).unwrap(); did already
-        match build_submission_json(title_slug, lang, model) {
-            Ok(post_body) => {
-                let v = submit_solution(title_slug, lang, model, post_body)
-                    .await
-                    .unwrap();
-                println!("{:?}", v);
-                let id = v["submission_id"].as_i64().unwrap();
-                tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-                let check = get_submission_check(&id.to_string()).await.unwrap();
-                println!("{:#?}", check);
-                save_submission(title_slug, lang, model, &check)
-                    .await
-                    .unwrap();
-            }
-            Err(e) => {
-                println!("Error building submission JSON: {}", e);
-                // panic!("Error building submission JSON: {}", e)
+            let sub_path = get_submission_directory_path(title_slug);
+            // create_dir_all(&sub_path).unwrap(); did already
+            match build_submission_json(title_slug, lang, model) {
+                Ok(post_body) => {
+                    let v = submit_solution(title_slug, lang, model, post_body)
+                        .await
+                        .unwrap();
+                    println!("{:?}", v);
+                    let id = v["submission_id"].as_i64().unwrap();
+                    tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+                    let check = match get_submission_check(&id.to_string()).await {
+                        Ok(check) => check,
+                        Err(e) => {
+                            println!("Error getting submission check: {}", e);
+                            continue;
+                        }
+                    };
+                    println!("{:#?}", check);
+                    save_submission(title_slug, lang, model, &check)
+                        .await
+                        .unwrap();
+                }
+                Err(e) => {
+                    println!("Error building submission JSON: {}", e);
+                    // panic!("Error building submission JSON: {}", e)
+                }
             }
         }
     }
