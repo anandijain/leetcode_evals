@@ -7,7 +7,7 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use chrono::prelude::*;
+use chrono::{prelude::*, Duration};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::fs::create_dir_all;
@@ -201,9 +201,15 @@ fn extract_content(response: &Value) -> Result<String, Box<dyn Error>> {
 
     Ok(content)
 }
+// format!("{slug}_{lang}_{model}");
 
 // Function to get the directory path
 fn get_directory_path(title_slug: &str) -> PathBuf {
+    Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/").join(title_slug)
+}
+
+// Function to get the directory path
+fn get_prompt_directory_path(title_slug: &str) -> PathBuf {
     Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
         .join(title_slug)
         .join("prompt")
@@ -218,7 +224,7 @@ fn get_soln_directory_path(title_slug: &str) -> PathBuf {
 
 // Function to get the prompt path
 fn get_prompt_path(title_slug: &str) -> PathBuf {
-    let dir_path = get_directory_path(title_slug);
+    let dir_path = get_prompt_directory_path(title_slug);
     let f = dir_path.join(format!("{}_prompt.json", title_slug));
     // println!("{:?}", f);
     f
@@ -230,7 +236,7 @@ fn get_title_slug(question: &Value) -> String {
 
 // Function to get the code path
 fn get_code_path(title_slug: &str) -> PathBuf {
-    let dir_path = get_directory_path(title_slug);
+    let dir_path = get_prompt_directory_path(title_slug);
     dir_path.join(format!("{}_code.json", title_slug))
 }
 
@@ -321,12 +327,16 @@ async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Resu
     tokio::fs::write(file_path, v.to_string()).await
 }
 
-fn build_post_body(title_slug: &str, lang: &str, model: &str) -> Value {
+fn build_submission_json(title_slug: &str, lang: &str, model: &str) -> Value {
     let soln_path = get_soln_fn(title_slug, lang, model);
     let soln_text = fs::read_to_string(soln_path).expect("Failed to read solution file");
     let code_blocks = extract_codeblocks(&soln_text);
 
-    let typed_code = code_blocks.last();
+    let typed_code = code_blocks.last().unwrap();
+    let unescaped_typed_code = typed_code.replace("\\n", "\n");
+
+    // println!("{:?}", typed_code);
+    // println!("{:?}", unescaped_typed_code);
 
     let question_id = SLUG_ID_MAP
         .get(title_slug)
@@ -335,14 +345,18 @@ fn build_post_body(title_slug: &str, lang: &str, model: &str) -> Value {
     json!({
         "question_id": question_id,
         "lang": lang,
-        "typed_code": typed_code
+        "typed_code": unescaped_typed_code
     })
 }
 
-pub async fn submit_solution(slug: &str, lang: &str, model: &str) -> Result<Value, Box<dyn std::error::Error>> {
+pub async fn submit_solution(
+    slug: &str,
+    lang: &str,
+    model: &str,
+) -> Result<Value, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
-    let post_body = build_post_body(slug, lang, model);
-    
+    let post_body = build_submission_json(slug, lang, model);
+
     let referer_url = format!("https://leetcode.com/problems/{}/", slug);
 
     // Build the headers
@@ -351,10 +365,10 @@ pub async fn submit_solution(slug: &str, lang: &str, model: &str) -> Result<Valu
     headers.insert("Cookie", HeaderValue::from_static(COOKIE));
     headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    
+
     headers.insert(REFERER, HeaderValue::from_str(&referer_url)?);
 
-    println!("{:#?}", post_body);
+    // println!("{:#?}", post_body);
     let url = format!("https://leetcode.com/problems/{}/submit/", slug);
     let response = client
         .post(&url)
@@ -364,7 +378,46 @@ pub async fn submit_solution(slug: &str, lang: &str, model: &str) -> Result<Valu
         .await?;
 
     let response_text = response.text().await?;
-    println!("{}", response_text);
+    // println!("{}", response_text);
+    let json_response = serde_json::from_str(&response_text)?;
+
+    Ok(json_response)
+}
+
+pub async fn get_submission_check(id: &str) -> Result<Value, Box<dyn std::error::Error>> {
+    let mut headers = reqwest::header::HeaderMap::new();
+
+    // Set the headers
+    headers.insert("authority", HeaderValue::from_static("leetcode.com"));
+    headers.insert("accept", HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"));
+    headers.insert(
+        "accept-language",
+        HeaderValue::from_static("en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7"),
+    );
+    headers.insert("cookie", HeaderValue::from_str(COOKIE).unwrap());
+    headers.insert("dnt", HeaderValue::from_static("1"));
+    headers.insert(
+        "sec-ch-ua",
+        HeaderValue::from_static(
+            "\"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"114\", \"Google Chrome\";v=\"114\"",
+        ),
+    );
+    headers.insert("sec-ch-ua-mobile", HeaderValue::from_static("?0"));
+    headers.insert("sec-ch-ua-platform", HeaderValue::from_static("\"macOS\""));
+    headers.insert("sec-fetch-dest", HeaderValue::from_static("document"));
+    headers.insert("sec-fetch-mode", HeaderValue::from_static("navigate"));
+    headers.insert("sec-fetch-site", HeaderValue::from_static("none"));
+    headers.insert("sec-fetch-user", HeaderValue::from_static("?1"));
+    headers.insert("upgrade-insecure-requests", HeaderValue::from_static("1"));
+    headers.insert("user-agent", HeaderValue::from_static("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"));
+
+    let client = Client::new();
+    let url = format!("https://leetcode.com/submissions/detail/{}/check/", id);
+
+    let res = client.get(&url).headers(headers).send().await?;
+    // println!("{:?}", res);
+    let response_text = res.text().await?;
+    // println!("{}", response_text);
     let json_response = serde_json::from_str(&response_text)?;
 
     Ok(json_response)
@@ -451,7 +504,16 @@ async fn old_main() -> Result<(), reqwest::Error> {
 
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
-    let v = submit_solution("two-sum", "python3", OPENAI_GPT_MODEL).await.unwrap();
+    let v = submit_solution("two-sum", "python3", OPENAI_GPT_MODEL)
+        .await
+        .unwrap();
+
     println!("{:?}", v);
+    let id = v["submission_id"].as_i64().unwrap();
+    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+
+    let check = get_submission_check(&id.to_string()).await.unwrap();
+    println!("{:#?}", check);
+
     Ok(())
 }
