@@ -164,7 +164,7 @@ async fn get_problems_and_code() -> Result<(), reqwest::Error> {
     Ok(())
 }
 
-async fn fetch_openai_completion(message: &str) -> Result<Value, Box<dyn Error>> {
+async fn fetch_openai_completion(message: &str, model: &str) -> Result<Value, Box<dyn Error>> {
     let client = Client::new();
 
     let mut headers = HeaderMap::new();
@@ -175,7 +175,7 @@ async fn fetch_openai_completion(message: &str) -> Result<Value, Box<dyn Error>>
     );
 
     let data = json!({
-        "model": OPENAI_GPT_MODEL,
+        "model": model,
         "messages": [
             {"role": "user", "content": message}
         ]
@@ -213,6 +213,13 @@ fn get_prompt_directory_path(title_slug: &str) -> PathBuf {
     Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
         .join(title_slug)
         .join("prompt")
+}
+
+// Function to get the directory path
+fn get_submission_directory_path(title_slug: &str) -> PathBuf {
+    Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
+        .join(title_slug)
+        .join("submissions")
 }
 
 // Function to get the directory path
@@ -288,10 +295,7 @@ fn get_code_for_lang(code_snippets: &Value, lang: &str) -> Result<String, Box<dy
 }
 
 fn has_lang(code_snippets: &Value, lang: &str) -> bool {
-    match get_code_for_lang(code_snippets, lang) {
-        Ok(_) => true,
-        Err(_) => false,
-    }
+    get_code_for_lang(code_snippets, lang).is_ok()
 }
 
 fn build_prompt(title_slug: &str, lang: &str) -> Result<(String, String), Box<dyn Error>> {
@@ -315,14 +319,28 @@ fn extract_codeblocks(text: &str) -> Vec<String> {
         .collect()
 }
 
+fn my_slug(slug: &str, lang: &str, model: &str) -> String {
+    format!("{}_{}_{}", slug, lang, model)
+}
+fn my_slug_json(slug: &str, lang: &str, model: &str) -> String {
+    format!("{}.json", my_slug(slug, lang, model))
+}
 fn get_soln_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
-    get_soln_directory_path(title_slug).join(format!("{}_{}_{}.json", title_slug, lang, model))
+    get_soln_directory_path(title_slug).join(my_slug_json(title_slug, lang, model))
 }
 
 async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Result<()> {
     let dir_path = get_soln_directory_path(title_slug);
     tokio::fs::create_dir_all(&dir_path).await?;
     let file_path = dir_path.join(get_soln_fn(title_slug, lang, OPENAI_GPT_MODEL));
+    println!("{:?}", file_path);
+    tokio::fs::write(file_path, v.to_string()).await
+}
+
+async fn save_submission(title_slug: &str, lang: &str, model: &str, v: &Value) -> std::io::Result<()> {
+    let dir_path = get_submission_directory_path(title_slug);
+    tokio::fs::create_dir_all(&dir_path).await?;
+    let file_path = dir_path.join(my_slug_json(title_slug, lang, model));
     println!("{:?}", file_path);
     tokio::fs::write(file_path, v.to_string()).await
 }
@@ -378,7 +396,7 @@ pub async fn submit_solution(
         .await?;
 
     let response_text = response.text().await?;
-    // println!("{}", response_text);
+    println!("{}", response_text);
     let json_response = serde_json::from_str(&response_text)?;
 
     Ok(json_response)
@@ -423,9 +441,33 @@ pub async fn get_submission_check(id: &str) -> Result<Value, Box<dyn std::error:
     Ok(json_response)
 }
 
+fn build_full_prompt(content: &str, _code: &str) -> String {
+    format!(
+        "{}\n\n{}\n\nWrite out full solution in a markdown codeblock:",
+        content, _code
+    )
+}
+
+
+/// solve assumes that you've already run `get_problems_and_code`
+pub async fn solve(slug: &str, lang: &str, model: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let (content, _code) = build_prompt(&slug, &lang)?;
+    
+    let full_prompt = build_full_prompt(&content, &_code);
+
+    let v = fetch_openai_completion(&full_prompt, model).await?;
+
+    save_solution(&slug, &lang, &v).await?;
+
+    Ok(())
+}
+
+
+
 // #[tokio::main]
 async fn old_main() -> Result<(), reqwest::Error> {
     let langs = vec!["java", "cpp"];
+    let model = OPENAI_GPT_MODEL;
     // let start_title_slug = "kth-missing-positive-number";
     let start_index = 0;
 
@@ -477,6 +519,7 @@ async fn old_main() -> Result<(), reqwest::Error> {
 
         let mut times = vec![];
         let mut i = 0;
+        /// todo use solve here
         for q in free_questions.iter().skip(start_index).progress() {
             let title_slug = q["titleSlug"].as_str().unwrap();
             // println!("{}: {}", i, title_slug);
@@ -485,7 +528,7 @@ async fn old_main() -> Result<(), reqwest::Error> {
                 "{}\n\n{}\n\nWrite out full solution in a markdown codeblock:",
                 content, _code
             );
-            let v = match fetch_openai_completion(&full_prompt).await {
+            let v = match fetch_openai_completion(&full_prompt, model).await {
                 Ok(val) => val,
                 Err(e) => {
                     eprintln!("Failed to fetch OpenAI completion: {} {}", e, title_slug);
@@ -504,16 +547,45 @@ async fn old_main() -> Result<(), reqwest::Error> {
 
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
-    let v = submit_solution("two-sum", "python3", OPENAI_GPT_MODEL)
-        .await
+    let lang = "python3";
+    let model = OPENAI_GPT_MODEL;
+
+    let v: Value =
+        serde_json::from_str(&std::fs::read_to_string("problemset.json").unwrap()).unwrap();
+    let questions = v["data"]["problemsetQuestionList"]["questions"]
+        .as_array()
         .unwrap();
 
-    println!("{:?}", v);
-    let id = v["submission_id"].as_i64().unwrap();
-    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+    solve("longest-substring-without-repeating-characters", lang, model).await.unwrap();
 
-    let check = get_submission_check(&id.to_string()).await.unwrap();
-    println!("{:#?}", check);
+
+    // for q in questions.iter().skip(0).progress() {
+    //     let title_slug = q["titleSlug"].as_str().unwrap();
+    //     let soln_fn = get_soln_fn(title_slug, lang, model);
+    //     println!("{:?}", soln_fn);
+
+    //     let sub_path = get_submission_directory_path(title_slug);
+    //     // create_dir_all(&sub_path).unwrap(); did already
+
+    //     let v = submit_solution(title_slug, lang, model)
+    //         .await
+    //         .unwrap();
+
+    //     println!("{:?}", v);
+    //     let id = v["submission_id"].as_i64().unwrap();
+    //     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+        
+    //     let check = get_submission_check(&id.to_string()).await.unwrap();
+    //     println!("{:#?}", check);
+    //     save_submission(title_slug, lang, model, &check).await.unwrap();
+    // }
+    // let free_questions: Vec<_> = questions
+    //     .iter()
+    //     .filter(|q| match q["paidOnly"].as_bool() {
+    //         Some(paid_only) => !paid_only,
+    //         None => false,
+    //     })
+    //     .collect();
 
     Ok(())
 }
