@@ -2,7 +2,7 @@ use indicatif::{self, ProgressIterator};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFERER, USER_AGENT};
 use reqwest::Client;
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -26,6 +26,7 @@ const COOKIE: &str = "csrftoken=vqXWMXcAkYJu75Pid4qoJCDpQgceZ0zFqgN2AeaPELpaE892
 const TOKEN: &str = "vqXWMXcAkYJu75Pid4qoJCDpQgceZ0zFqgN2AeaPELpaE89289U7USSjkdYDrXXo";
 
 const USER_AGENT_STR: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36";
+const GPT_3_SOLVED_LANGS: [&str; 6] = ["c", "cpp", "java", "javascript", "python3", "rust"];
 
 static SLUG_ID_MAP: Lazy<HashMap<String, String>> = Lazy::new(|| {
     let data = fs::read_to_string("problemset.json").expect("Failed to read problemset.json");
@@ -397,35 +398,38 @@ async fn save_submission(
     tokio::fs::write(file_path, v.to_string()).await
 }
 
-fn build_submission_json(title_slug: &str, lang: &str, model: &str) -> Value {
+fn build_submission_json(
+    title_slug: &str,
+    lang: &str,
+    model: &str,
+) -> Result<Value, Box<dyn std::error::Error>> {
     let soln_path = get_soln_fn(title_slug, lang, model);
-    let soln_text = fs::read_to_string(soln_path).expect("Failed to read solution file");
-    let code_blocks = extract_codeblocks(&soln_text);
+    let soln_text = fs::read_to_string(&soln_path)?;
+    let code_blocks = extract_specific_lang_codeblocks(&soln_text, lang);
 
-    println!("{:?}", code_blocks);
-    let typed_code = code_blocks.last().unwrap();
+    let typed_code = code_blocks.last().ok_or("No code blocks found")?;
     let unescaped_typed_code = typed_code.replace("\\n", "\n");
-
-    // println!("{:?}", unescaped_typed_code);
 
     let question_id = SLUG_ID_MAP
         .get(title_slug)
-        .expect("Title slug not found in global map");
+        .ok_or("Title slug not found in global map")?;
 
-    json!({
+    let json_value = json!({
         "question_id": question_id,
         "lang": lang,
         "typed_code": unescaped_typed_code
-    })
+    });
+
+    Ok(json_value)
 }
 
 pub async fn submit_solution(
     slug: &str,
     lang: &str,
     model: &str,
+    post_body: Value,
 ) -> Result<Value, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
-    let post_body = build_submission_json(slug, lang, model);
 
     let referer_url = format!("https://leetcode.com/problems/{}/", slug);
 
@@ -594,47 +598,115 @@ async fn old_main() -> Result<(), reqwest::Error> {
     Ok(())
 }
 
-#[tokio::main]
-pub async fn main() -> Result<(), reqwest::Error> {
-    let lang = "python3";
-    let model = OPENAI_GPT_MODEL;
-
+fn get_qs() -> Vec<Value> {
     let v: Value =
         serde_json::from_str(&std::fs::read_to_string("problemset.json").unwrap()).unwrap();
     let questions = v["data"]["problemsetQuestionList"]["questions"]
         .as_array()
         .unwrap();
+    let qs: Vec<_> = questions
+        .iter()
+        .filter(|q| match q["paidOnly"].as_bool() {
+            Some(paid_only) => !paid_only,
+            None => false,
+        })
+        .cloned() // Cloning the elements here
+        .collect();
+    qs
+}
+fn tally_langs() -> HashMap<String, usize> {
+    // let qs = get_qs();
+    let qs = get_qs();
+    let mut langs: HashMap<String, usize> = HashMap::new();
+    for q in qs.iter() {
+        let code = get_code(&get_title_slug(q)).unwrap();
+        let code_snippets = get_code_snippets(&code).unwrap();
+        for snippet in code_snippets.as_array().unwrap() {
+            let lang = snippet["langSlug"].as_str().unwrap();
+            let count = langs.entry(lang.to_string()).or_insert(0);
+            *count += 1;
+        }
+    }
+    langs
+}
 
-    // solve("longest-substring-without-repeating-characters", lang, model).await.unwrap();
+fn get_common_question_slugs(langs: Vec<&str>) -> Vec<String> {
+    let all_langs_done: HashSet<String> = langs.iter().map(|&s| s.to_string()).collect();
 
-    for q in questions.iter().skip(0).progress() {
+    let qs = get_qs();
+
+    let mut title_slug_langs_map: HashMap<String, HashSet<String>> = HashMap::new();
+
+    for q in qs.iter() {
+        let title_slug = get_title_slug(q).to_string();
+        let code = get_code(&title_slug).unwrap();
+        let code_snippets = get_code_snippets(&code).unwrap();
+        for snippet in code_snippets.as_array().unwrap() {
+            let lang = snippet["langSlug"].as_str().unwrap().to_string();
+            title_slug_langs_map
+                .entry(title_slug.clone())
+                .or_insert(HashSet::new())
+                .insert(lang);
+        }
+    }
+
+    title_slug_langs_map
+        .into_iter()
+        .filter(|(_k, v)| all_langs_done.is_subset(v))
+        .map(|(k, _v)| k)
+        .collect()
+}
+
+fn get_common_questions(langs: Vec<&str>) -> Vec<Value> {
+    let common_slugs = get_common_question_slugs(langs);
+    let qs = get_qs();
+
+    qs.into_iter()
+        .filter(|q| common_slugs.contains(&get_title_slug(q)))
+        .collect()
+}
+
+#[tokio::main]
+pub async fn main() -> Result<(), reqwest::Error> {
+    println!("{:#?}", tally_langs());
+
+    let all_langs_done: Vec<&str> = vec!["c", "cpp", "java", "javascript", "python3", "rust"];
+    let qs = get_common_questions(all_langs_done);
+
+    println!("{:#?}", qs[0]);
+    println!("Questions in testset: {:#?}", qs.len());
+
+    let lang = "python3";
+    let model = OPENAI_GPT_MODEL;
+    // // solve("longest-substring-without-repeating-characters", lang, model).await.unwrap();
+
+    for q in qs.iter().skip(0).progress() {
         let title_slug = q["titleSlug"].as_str().unwrap();
         let soln_fn = get_soln_fn(title_slug, lang, model);
         println!("{:?}", soln_fn);
 
         let sub_path = get_submission_directory_path(title_slug);
         // create_dir_all(&sub_path).unwrap(); did already
-
-        let v = submit_solution(title_slug, lang, model).await.unwrap();
-
-        println!("{:?}", v);
-        let id = v["submission_id"].as_i64().unwrap();
-        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-
-        let check = get_submission_check(&id.to_string()).await.unwrap();
-        println!("{:#?}", check);
-        save_submission(title_slug, lang, model, &check)
-            .await
-            .unwrap();
+        match build_submission_json(title_slug, lang, model) {
+            Ok(post_body) => {
+                let v = submit_solution(title_slug, lang, model, post_body)
+                    .await
+                    .unwrap();
+                println!("{:?}", v);
+                let id = v["submission_id"].as_i64().unwrap();
+                tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+                let check = get_submission_check(&id.to_string()).await.unwrap();
+                println!("{:#?}", check);
+                save_submission(title_slug, lang, model, &check)
+                    .await
+                    .unwrap();
+            }
+            Err(e) => {
+                println!("Error building submission JSON: {}", e);
+                // panic!("Error building submission JSON: {}", e)
+            }
+        }
     }
-
-    // let free_questions: Vec<_> = questions
-    //     .iter()
-    //     .filter(|q| match q["paidOnly"].as_bool() {
-    //         Some(paid_only) => !paid_only,
-    //         None => false,
-    //     })
-    //     .collect();
 
     Ok(())
 }
