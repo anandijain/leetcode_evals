@@ -446,6 +446,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "indicatif",
+ "lazy_static",
  "once_cell",
  "regex",
  "reqwest",

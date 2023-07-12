@@ -15,6 +15,9 @@ use std::fs::{write, File};
 use std::io::Write;
 use std::thread::sleep;
 
+#[macro_use]
+extern crate lazy_static;
+
 const OPENAI_API_KEY: &str = env!("OPENAI_API_KEY");
 const OPENAI_GPT_MODEL: &str = "gpt-3.5-turbo";
 // const OPENAI_GPT_MODEL: &str = "gpt-4";
@@ -29,6 +32,40 @@ static SLUG_ID_MAP: Lazy<HashMap<String, String>> = Lazy::new(|| {
     let v: Value = serde_json::from_str(&data).expect("Failed to parse JSON data");
     build_slug_to_id_map(&v)
 });
+
+lazy_static! {
+    static ref MARKDOWN_PREFIXES: HashMap<&'static str, &'static str> = {
+        vec![
+            ("golang", "go"),
+            ("python3", "python"),
+            ("javascript", "javascript"),
+            ("typescript", "typescript"),
+            ("java", "java"),
+            ("c", "c"),
+            ("cpp", "cpp"),
+            ("csharp", "csharp"),
+            ("ruby", "ruby"),
+            ("swift", "swift"),
+            ("kotlin", "kotlin"),
+            ("rust", "rust"),
+            ("shell", "shell"),
+            ("r", "r"),
+            ("scala", "scala"),
+            ("php", "php"),
+            ("perl", "perl"),
+            ("lua", "lua"),
+            ("haskell", "haskell"),
+            ("groovy", "groovy"),
+            ("dart", "dart"),
+        ]
+        .into_iter()
+        .collect()
+    };
+}
+
+fn get_markdown_prefix(lang_slug: &str) -> Option<&&str> {
+    MARKDOWN_PREFIXES.get(lang_slug)
+}
 
 async fn get_problemset() -> Result<(), reqwest::Error> {
     let client = reqwest::Client::new();
@@ -319,6 +356,16 @@ fn extract_codeblocks(text: &str) -> Vec<String> {
         .collect()
 }
 
+fn extract_specific_lang_codeblocks(text: &str, lang: &str) -> Vec<String> {
+    let markdown_prefix = get_markdown_prefix(lang).unwrap();
+    let codeblock_regex =
+        Regex::new(&format!(r"```{}(?:\n)?((?s:.+?))```", markdown_prefix)).unwrap();
+    codeblock_regex
+        .captures_iter(text)
+        .map(|cap| cap[1].to_string())
+        .collect()
+}
+
 fn my_slug(slug: &str, lang: &str, model: &str) -> String {
     format!("{}_{}_{}", slug, lang, model)
 }
@@ -337,7 +384,12 @@ async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Resu
     tokio::fs::write(file_path, v.to_string()).await
 }
 
-async fn save_submission(title_slug: &str, lang: &str, model: &str, v: &Value) -> std::io::Result<()> {
+async fn save_submission(
+    title_slug: &str,
+    lang: &str,
+    model: &str,
+    v: &Value,
+) -> std::io::Result<()> {
     let dir_path = get_submission_directory_path(title_slug);
     tokio::fs::create_dir_all(&dir_path).await?;
     let file_path = dir_path.join(my_slug_json(title_slug, lang, model));
@@ -350,10 +402,10 @@ fn build_submission_json(title_slug: &str, lang: &str, model: &str) -> Value {
     let soln_text = fs::read_to_string(soln_path).expect("Failed to read solution file");
     let code_blocks = extract_codeblocks(&soln_text);
 
+    println!("{:?}", code_blocks);
     let typed_code = code_blocks.last().unwrap();
     let unescaped_typed_code = typed_code.replace("\\n", "\n");
 
-    // println!("{:?}", typed_code);
     // println!("{:?}", unescaped_typed_code);
 
     let question_id = SLUG_ID_MAP
@@ -448,11 +500,10 @@ fn build_full_prompt(content: &str, _code: &str) -> String {
     )
 }
 
-
 /// solve assumes that you've already run `get_problems_and_code`
 pub async fn solve(slug: &str, lang: &str, model: &str) -> Result<(), Box<dyn std::error::Error>> {
     let (content, _code) = build_prompt(&slug, &lang)?;
-    
+
     let full_prompt = build_full_prompt(&content, &_code);
 
     let v = fetch_openai_completion(&full_prompt, model).await?;
@@ -461,8 +512,6 @@ pub async fn solve(slug: &str, lang: &str, model: &str) -> Result<(), Box<dyn st
 
     Ok(())
 }
-
-
 
 // #[tokio::main]
 async fn old_main() -> Result<(), reqwest::Error> {
@@ -556,29 +605,29 @@ pub async fn main() -> Result<(), reqwest::Error> {
         .as_array()
         .unwrap();
 
-    solve("longest-substring-without-repeating-characters", lang, model).await.unwrap();
+    // solve("longest-substring-without-repeating-characters", lang, model).await.unwrap();
 
+    for q in questions.iter().skip(0).progress() {
+        let title_slug = q["titleSlug"].as_str().unwrap();
+        let soln_fn = get_soln_fn(title_slug, lang, model);
+        println!("{:?}", soln_fn);
 
-    // for q in questions.iter().skip(0).progress() {
-    //     let title_slug = q["titleSlug"].as_str().unwrap();
-    //     let soln_fn = get_soln_fn(title_slug, lang, model);
-    //     println!("{:?}", soln_fn);
+        let sub_path = get_submission_directory_path(title_slug);
+        // create_dir_all(&sub_path).unwrap(); did already
 
-    //     let sub_path = get_submission_directory_path(title_slug);
-    //     // create_dir_all(&sub_path).unwrap(); did already
+        let v = submit_solution(title_slug, lang, model).await.unwrap();
 
-    //     let v = submit_solution(title_slug, lang, model)
-    //         .await
-    //         .unwrap();
+        println!("{:?}", v);
+        let id = v["submission_id"].as_i64().unwrap();
+        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
 
-    //     println!("{:?}", v);
-    //     let id = v["submission_id"].as_i64().unwrap();
-    //     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-        
-    //     let check = get_submission_check(&id.to_string()).await.unwrap();
-    //     println!("{:#?}", check);
-    //     save_submission(title_slug, lang, model, &check).await.unwrap();
-    // }
+        let check = get_submission_check(&id.to_string()).await.unwrap();
+        println!("{:#?}", check);
+        save_submission(title_slug, lang, model, &check)
+            .await
+            .unwrap();
+    }
+
     // let free_questions: Vec<_> = questions
     //     .iter()
     //     .filter(|q| match q["paidOnly"].as_bool() {
@@ -588,4 +637,21 @@ pub async fn main() -> Result<(), reqwest::Error> {
     //     .collect();
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_specific_lang_codeblocks() {
+        let text = "
+```python
+print('Hello, World!')
+```
+";
+        let lang = "python3";
+        let code_blocks = extract_specific_lang_codeblocks(text, lang);
+        assert_eq!(code_blocks[0], "print('Hello, World!')\n");
+    }
 }
