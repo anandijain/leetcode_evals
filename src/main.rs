@@ -239,7 +239,6 @@ fn extract_content(response: &Value) -> Result<String, Box<dyn Error>> {
 
     Ok(content)
 }
-// format!("{slug}_{lang}_{model}");
 
 // Function to get the directory path
 fn get_directory_path(title_slug: &str) -> PathBuf {
@@ -247,29 +246,29 @@ fn get_directory_path(title_slug: &str) -> PathBuf {
 }
 
 // Function to get the directory path
-fn get_prompt_directory_path(title_slug: &str) -> PathBuf {
+fn get_prompt_dir(title_slug: &str) -> PathBuf {
     Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
         .join(title_slug)
         .join("prompt")
 }
 
 // Function to get the directory path
-fn get_submission_directory_path(title_slug: &str) -> PathBuf {
-    Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
-        .join(title_slug)
-        .join("submissions")
-}
-
-// Function to get the directory path
-fn get_soln_directory_path(title_slug: &str) -> PathBuf {
+fn get_solution_dir(title_slug: &str) -> PathBuf {
     Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
         .join(title_slug)
         .join("solutions")
 }
 
+// Function to get the directory path
+fn get_submission_dir(title_slug: &str) -> PathBuf {
+    Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
+        .join(title_slug)
+        .join("submissions")
+}
+
 // Function to get the prompt path
 fn get_prompt_path(title_slug: &str) -> PathBuf {
-    let dir_path = get_prompt_directory_path(title_slug);
+    let dir_path = get_prompt_dir(title_slug);
     let f = dir_path.join(format!("{}_prompt.json", title_slug));
     // println!("{:?}", f);
     f
@@ -281,7 +280,7 @@ fn get_title_slug(question: &Value) -> String {
 
 // Function to get the code path
 fn get_code_path(title_slug: &str) -> PathBuf {
-    let dir_path = get_prompt_directory_path(title_slug);
+    let dir_path = get_prompt_dir(title_slug);
     dir_path.join(format!("{}_code.json", title_slug))
 }
 
@@ -315,10 +314,6 @@ fn get_code_snippets(data: &Value) -> Option<&Value> {
     // Navigate to the 'codeSnippets' field.
     data.get("data")?.get("question")?.get("codeSnippets")
 }
-
-// fn get_code_snippets_from_question(question: &Value) -> Option<&Value> {
-//     get_code_snippets(get_code(&get_title_slug(question)).unwrap())
-// }
 
 fn get_code_for_lang(code_snippets: &Value, lang: &str) -> Result<String, Box<dyn Error>> {
     code_snippets
@@ -370,15 +365,45 @@ fn extract_specific_lang_codeblocks(text: &str, lang: &str) -> Vec<String> {
 fn my_slug(slug: &str, lang: &str, model: &str) -> String {
     format!("{}_{}_{}", slug, lang, model)
 }
+
 fn my_slug_json(slug: &str, lang: &str, model: &str) -> String {
     format!("{}.json", my_slug(slug, lang, model))
 }
+
+fn parse_my_slug(my_slug: &str) -> (String, String, String) {
+    let parts: Vec<&str> = my_slug.split('_').collect();
+    let slug = parts.get(0).unwrap_or(&"").to_string();
+    let lang = parts.get(1).unwrap_or(&"").to_string();
+    let model = match parts.get(2) {
+        Some(part) => part.to_string(),
+        None => {
+            println!("parts: {:?}", parts);
+            "".to_string()
+        }
+    };
+
+    (slug, lang, model)
+}
+
+fn parse_my_slug_json(my_slug_json: &str) -> (String, String, String) {
+    let parts: Vec<&str> = my_slug_json.split('.').collect();
+    parse_my_slug(parts[0])
+}
+
+fn get_solution_fns(slug: &str) -> Result<std::fs::ReadDir, std::io::Error> {
+    std::fs::read_dir(get_solution_dir(slug))
+}
+
+fn get_submission_fns(slug: &str) -> Result<std::fs::ReadDir, std::io::Error> {
+    std::fs::read_dir(get_submission_dir(slug))
+}
+
 fn get_soln_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
-    get_soln_directory_path(title_slug).join(my_slug_json(title_slug, lang, model))
+    get_solution_dir(title_slug).join(my_slug_json(title_slug, lang, model))
 }
 
 async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Result<()> {
-    let dir_path = get_soln_directory_path(title_slug);
+    let dir_path = get_solution_dir(title_slug);
     tokio::fs::create_dir_all(&dir_path).await?;
     let file_path = dir_path.join(get_soln_fn(title_slug, lang, OPENAI_GPT_MODEL));
     println!("{:?}", file_path);
@@ -391,7 +416,7 @@ async fn save_submission(
     model: &str,
     v: &Value,
 ) -> std::io::Result<()> {
-    let dir_path = get_submission_directory_path(title_slug);
+    let dir_path = get_submission_dir(title_slug);
     tokio::fs::create_dir_all(&dir_path).await?;
     let file_path = dir_path.join(my_slug_json(title_slug, lang, model));
     println!("{:?}", file_path);
@@ -614,9 +639,8 @@ fn get_qs() -> Vec<Value> {
         .collect();
     qs
 }
-fn tally_langs() -> HashMap<String, usize> {
-    // let qs = get_qs();
-    let qs = get_qs();
+
+fn tally_langs(qs: Vec<Value>) -> HashMap<String, usize> {
     let mut langs: HashMap<String, usize> = HashMap::new();
     for q in qs.iter() {
         let code = get_code(&get_title_slug(q)).unwrap();
@@ -628,6 +652,31 @@ fn tally_langs() -> HashMap<String, usize> {
         }
     }
     langs
+}
+
+fn tally_files<F>(qs: Vec<Value>, get_fns: F) -> HashMap<String, usize>
+where
+    F: Fn(&str) -> Result<std::fs::ReadDir, std::io::Error>,
+{
+    let mut solutions: HashMap<String, usize> = HashMap::new();
+    for q in qs.iter() {
+        let slug = get_title_slug(q);
+        for file in get_fns(&slug).unwrap() {
+            let f = file.unwrap();
+            let (_slug, lang, _model) = parse_my_slug_json(&f.file_name().to_str().unwrap());
+            let count = solutions.entry(lang.to_string()).or_insert(0);
+            *count += 1;
+        }
+    }
+    solutions
+}
+
+fn tally_solutions(qs: Vec<Value>) -> HashMap<String, usize> {
+    tally_files(qs, get_solution_fns)
+}
+
+fn tally_submissions(qs: Vec<Value>) -> HashMap<String, usize> {
+    tally_files(qs, get_submission_fns)
 }
 
 fn get_common_question_slugs(langs: Vec<&str>) -> Vec<String> {
@@ -666,56 +715,77 @@ fn get_common_questions(langs: Vec<&str>) -> Vec<Value> {
         .collect()
 }
 
+fn display_tally(hm: HashMap<String, usize>) {
+    let mut v: Vec<_> = hm.into_iter().collect();
+    v.sort_by(|a, b| b.1.cmp(&a.1));
+    for (lang, count) in v {
+        println!("{}: {}", lang, count);
+    }
+}
+
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
-    // println!("{:#?}", tally_langs());
-
     let langs: Vec<&str> = vec!["c", "cpp", "java", "javascript", "python3", "rust"];
+    // todo run gpt on csharp golang php scala kotlin swift ruby dart elixir racket erlang
+    // try doing it async to
     let qs = get_common_questions(langs.clone());
+
     let start_index = qs
         .iter()
-        .position(|q| q["titleSlug"].as_str().unwrap() == "3sum-closest")
-        .unwrap();
-    // let start_index = 15;
-
-    println!("{:#?}", qs[0]);
+        .position(|q| {
+            q["titleSlug"].as_str().unwrap() == "random-point-in-non-overlapping-rectangles"
+        })
+        .unwrap_or(0);
     println!("Start index: {:#?}", start_index);
-    println!("Questions in testset: {:#?}", qs.len());
 
-    // let lang = "python3";
+    println!("Start question: {:#?}", qs[start_index]);
+    println!("tally_langs:");
+    display_tally(tally_langs(qs.clone()));
+    println!("\ntally_solutions:");
+    display_tally(tally_solutions(qs.clone()));
+    println!("\ntally_submissions:");
+    display_tally(tally_submissions(qs.clone()));
+    println!("\nQuestions in testset: {:#?}", qs.len());
+
     let model = OPENAI_GPT_MODEL;
-    // // solve("longest-substring-without-repeating-characters", lang, model).await.unwrap();
-    for q in qs.iter().skip(start_index - 1).progress() {
+
+    for q in qs.iter().skip(start_index).progress() {
         for lang in langs.clone() {
             let title_slug = q["titleSlug"].as_str().unwrap();
             let soln_fn = get_soln_fn(title_slug, lang, model);
             println!("{:?}", soln_fn);
 
-            let sub_path = get_submission_directory_path(title_slug);
-            // create_dir_all(&sub_path).unwrap(); did already
+            let sub_path = get_submission_dir(title_slug);
+
             match build_submission_json(title_slug, lang, model) {
-                Ok(post_body) => {
-                    let v = submit_solution(title_slug, lang, model, post_body)
-                        .await
-                        .unwrap();
-                    println!("{:?}", v);
-                    let id = v["submission_id"].as_i64().unwrap();
-                    tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-                    let check = match get_submission_check(&id.to_string()).await {
-                        Ok(check) => check,
-                        Err(e) => {
-                            println!("Error getting submission check: {}", e);
-                            continue;
+                Ok(post_body) => match submit_solution(title_slug, lang, model, post_body).await {
+                    Ok(v) => {
+                        println!("{:?}", v);
+                        let id = v["submission_id"].as_i64().unwrap();
+                        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+                        let check = match get_submission_check(&id.to_string()).await {
+                            Ok(check) => check,
+                            Err(e) => {
+                                println!("Error getting submission check: {}", e);
+                                continue;
+                            }
+                        };
+                        println!("{:#?}", check);
+                        match save_submission(title_slug, lang, model, &check).await {
+                            Ok(_) => (),
+                            Err(e) => {
+                                println!("Error saving submission: {}", e);
+                                continue;
+                            }
                         }
-                    };
-                    println!("{:#?}", check);
-                    save_submission(title_slug, lang, model, &check)
-                        .await
-                        .unwrap();
-                }
+                    }
+                    Err(e) => {
+                        println!("Error submitting solution: {}", e);
+                        continue;
+                    }
+                },
                 Err(e) => {
                     println!("Error building submission JSON: {}", e);
-                    // panic!("Error building submission JSON: {}", e)
                 }
             }
         }
