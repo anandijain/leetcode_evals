@@ -1,4 +1,4 @@
-use indicatif::{self, ProgressIterator};
+use indicatif::{self, ProgressBar, ProgressIterator, ProgressStyle};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFERER, USER_AGENT};
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -14,6 +14,8 @@ use std::fs::create_dir_all;
 use std::fs::{write, File};
 use std::io::Write;
 use std::thread::sleep;
+use tokio::task::JoinHandle;
+use tokio::try_join;
 
 #[macro_use]
 extern crate lazy_static;
@@ -63,6 +65,21 @@ lazy_static! {
         .collect()
     };
 }
+
+// lazy_static! {
+//     pub static ref RATE_LIMITS: HashMap<String, (usize, usize)> = {
+//         let mut m = HashMap::new();
+//         m.insert("gpt-3.5-turbo", (3500, 90000));
+//         m.insert("gpt-3.5-turbo-0301", (3500, 90000));
+//         m.insert("gpt-3.5-turbo-0613", (3500, 90000));
+//         m.insert("gpt-3.5-turbo-16k", (3500, 180000));
+//         m.insert("gpt-3.5-turbo-16k-0613", (3500, 180000));
+//         m.insert("gpt-4", (200, 40000));
+//         m.insert("gpt-4-0314", (200, 40000));
+//         m.insert("gpt-4-0613", (200, 40000));
+//         m
+//     };
+// }
 
 fn get_markdown_prefix(lang_slug: &str) -> Option<&&str> {
     MARKDOWN_PREFIXES.get(lang_slug)
@@ -522,29 +539,103 @@ pub async fn get_submission_check(id: &str) -> Result<Value, Box<dyn std::error:
     Ok(json_response)
 }
 
-fn build_full_prompt(content: &str, _code: &str) -> String {
+fn format_full_prompt(content: &str, _code: &str) -> String {
     format!(
         "{}\n\n{}\n\nWrite out full solution in a markdown codeblock:",
         content, _code
     )
 }
 
-/// solve assumes that you've already run `get_problems_and_code`
-pub async fn solve(slug: &str, lang: &str, model: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn build_oai_post_body(
+    slug: &str,
+    lang: &str,
+    model: &str,
+) -> Result<Value, Box<dyn std::error::Error>> {
     let (content, _code) = build_prompt(&slug, &lang)?;
 
-    let full_prompt = build_full_prompt(&content, &_code);
+    let full_prompt = format_full_prompt(&content, &_code);
+
+    let data = json!({
+        "model": model,
+        "messages": [
+            {"role": "user", "content": full_prompt}
+        ]
+    });
+    Ok(data)
+}
+
+fn build_oai_pair(slug: &str, lang: &str, model: &str) -> (PathBuf, Value) {
+    (
+        get_solution_fn(slug, lang, model),
+        build_oai_post_body(slug, lang, model).unwrap(),
+    )
+}
+
+fn get_questions_for_lang(qs: &Vec<Value>, lang: &str) -> Vec<Value> {
+    let mut lqs = vec![];
+    for q in qs {
+        let code = get_code(&get_title_slug(&q)).unwrap();
+        let code_snippets = get_code_snippets(&code).unwrap();
+        if has_lang(&code_snippets, lang) {
+            lqs.push(q.clone());
+        }
+    }
+    lqs
+}
+
+fn build_all_bodies(
+    qs: Vec<Value>,
+    langs: Vec<&str>,
+    models: Vec<&str>,
+) -> Vec<(String, String, String)> {
+    let mut bodies = vec![];
+    for m in models.clone() {
+        for l in langs.clone() {
+            let lqs = get_questions_for_lang(&qs, l);
+            for q in lqs.clone() {
+                let slug = get_title_slug(&q);
+                bodies.push((slug, l.to_string(), m.to_string()));
+            }
+        }
+    }
+    bodies
+}
+
+/// solve assumes that you've already run `get_problems_and_code`
+pub async fn solve(
+    slug: &str,
+    lang: &str,
+    model: &str,
+) -> Result<Value, Box<dyn std::error::Error>> {
+    let (content, _code) = build_prompt(&slug, &lang)?;
+
+    let full_prompt = format_full_prompt(&content, &_code);
 
     let v = fetch_openai_completion(&full_prompt, model).await?;
 
     save_solution(&slug, &lang, &v).await?;
 
-    Ok(())
+    Ok(v)
 }
 
 // #[tokio::main]
 async fn old_main() -> Result<(), reqwest::Error> {
-    let langs = vec!["java", "cpp"];
+    // todo run gpt on csharp golang php scala kotlin swift ruby dart elixir racket erlang
+    // try doing it async to
+    let langs = vec![
+        "golang",
+        "kotlin",
+        "ruby",
+        "scala",
+        "csharp",
+        "php",
+        "swift",
+        "typescript",
+        "dart",
+        "elixir",
+        "racket",
+        "erlang",
+    ];
     let model = OPENAI_GPT_MODEL;
     // let start_title_slug = "kth-missing-positive-number";
     let start_index = 0;
@@ -723,11 +814,153 @@ fn display_tally(hm: HashMap<String, usize>) {
     }
 }
 
+// #[tokio::main]
+// async fn main() -> Result<(), Box<dyn Error>> {
+//     let langs = vec!["golang", "kotlin", "ruby", "scala", "csharp", "php", "swift", "typescript", "dart", "elixir", "racket", "erlang"];
+//     let model = OPENAI_GPT_MODEL;
+//     let start_index = 0;
+
+//     let client = reqwest::Client::new();
+//     let base = "https://leetcode.com/problems/";
+
+//     let mut headers = HeaderMap::new();
+//     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+//     headers.insert(
+//         AUTHORIZATION,
+//         HeaderValue::from_str(&format!("Bearer {}", OPENAI_API_KEY))?,
+//     );
+
+//     let v: Value =
+//         serde_json::from_str(&std::fs::read_to_string("problemset.json").unwrap()).unwrap();
+
+//     let mut tasks = vec![];
+//     for lang in langs {
+//         let questions = v["data"]["problemsetQuestionList"]["questions"]
+//             .as_array()
+//             .unwrap()
+//             .clone(); // You may need to clone the questions if you can't share ownership between tasks
+
+//         let task = tokio::spawn(async move {
+//             let free_questions: Vec<_> = questions
+//                 .iter()
+//                 .filter(|q| match q["paidOnly"].as_bool() {
+//                     Some(paid_only) => {
+//                         !paid_only
+//                             && has_lang(
+//                                 get_code_snippets(&get_code(&get_title_slug(q)).unwrap()).unwrap(),
+//                                 lang,
+//                             )
+//                     }
+//                     None => false,
+//                 })
+//                 .collect();
+
+//             let mut times = vec![];
+//             let mut i = 0;
+//             for q in free_questions.iter().skip(start_index).progress() {
+//                 let title_slug = q["titleSlug"].as_str().unwrap();
+//                 let (content, _code) = build_prompt(&title_slug, &lang).unwrap();
+//                 let full_prompt = format!(
+//                     "{}\n\n{}\n\nWrite out full solution in a markdown codeblock:",
+//                     content, _code
+//                 );
+//                 let v = match fetch_openai_completion(&full_prompt, model).await {
+//                     Ok(val) => val,
+//                     Err(e) => {
+//                         eprintln!("Failed to fetch OpenAI completion: {} {}", e, title_slug);
+//                         continue;
+//                     }
+//                 };
+//                 let local = Local::now();
+//                 times.push(local);
+//                 println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+//                 save_solution(&title_slug, &lang, &v).await.unwrap();
+//                 i += 1;
+//             }
+//         });
+//         tasks.push(task);
+//     }
+//     println!("num tasks: {}", tasks.len());
+//     // for task in tasks {
+//     //     task.await?;
+//     // }
+
+//     Ok(())
+// }
+
 #[tokio::main]
-pub async fn main() -> Result<(), reqwest::Error> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let langs = vec![
+        "golang",
+        "kotlin",
+        "ruby",
+        "scala",
+        "csharp",
+        "php",
+        "swift",
+        "typescript",
+        "dart",
+        "elixir",
+        "racket",
+        "erlang",
+    ];
+    let models = vec![OPENAI_GPT_MODEL];
+    let qs = get_qs();
+    let myslug_tups = build_all_bodies(qs, langs.clone(), models.clone());
+
+    let start_index = myslug_tups
+        .clone()
+        .iter()
+        .position(|q| q.to_owned() == parse_my_slug("maximal-rectangle_golang_gpt-3.5-turbo"))
+        .unwrap_or(0);
+
+    println!("Start index: {:#?}", start_index);
+    println!("myslug_tups: {:#?}", myslug_tups.len());
+    let mut ps = vec![];
+    for (slug, lang, model) in myslug_tups {
+        let p = build_oai_pair(&slug, &lang, &model);
+        ps.push(p);
+    }
+    println!("p: {:#?}", ps[0]);
+
+    for (filename, data) in ps.iter().skip(start_index).progress() {
+        let filename = filename.clone().into_os_string();
+
+        let client = Client::new();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", OPENAI_API_KEY)).unwrap(),
+        );
+        // tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await; // Delay to avoid rate limit
+        let res = client
+            .post("https://api.openai.com/v1/chat/completions")
+            .headers(headers.clone())
+            .json(&data)
+            .send()
+            .await;
+
+        match res {
+            Ok(res) => {
+                let text = res.text().await.unwrap();
+                let mut file = File::create(&filename).expect("create failed");
+                file.write_all(text.as_bytes()).expect("write failed");
+
+                println!("Saved to: {:?}", filename);
+                // println!("resp to: {:?}", text);
+            }
+            Err(_) => panic!("Failed to send request"),
+        };
+    }
+
+    Ok(())
+}
+
+pub async fn submit_main() -> Result<(), reqwest::Error> {
     let langs: Vec<&str> = vec!["c", "cpp", "java", "javascript", "python3", "rust"];
-    // todo run gpt on csharp golang php scala kotlin swift ruby dart elixir racket erlang
-    // try doing it async to
+
     let qs = get_common_questions(langs.clone());
 
     let start_index = qs
