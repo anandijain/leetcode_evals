@@ -398,14 +398,14 @@ fn get_submission_fns(slug: &str) -> Result<std::fs::ReadDir, std::io::Error> {
     std::fs::read_dir(get_submission_dir(slug))
 }
 
-fn get_soln_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
+fn get_solution_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
     get_solution_dir(title_slug).join(my_slug_json(title_slug, lang, model))
 }
 
 async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Result<()> {
     let dir_path = get_solution_dir(title_slug);
     tokio::fs::create_dir_all(&dir_path).await?;
-    let file_path = dir_path.join(get_soln_fn(title_slug, lang, OPENAI_GPT_MODEL));
+    let file_path = dir_path.join(get_solution_fn(title_slug, lang, OPENAI_GPT_MODEL));
     println!("{:?}", file_path);
     tokio::fs::write(file_path, v.to_string()).await
 }
@@ -428,7 +428,7 @@ fn build_submission_json(
     lang: &str,
     model: &str,
 ) -> Result<Value, Box<dyn std::error::Error>> {
-    let soln_path = get_soln_fn(title_slug, lang, model);
+    let soln_path = get_solution_fn(title_slug, lang, model);
     let soln_text = fs::read_to_string(&soln_path)?;
     let code_blocks = extract_specific_lang_codeblocks(&soln_text, lang);
 
@@ -752,7 +752,7 @@ pub async fn main() -> Result<(), reqwest::Error> {
     for q in qs.iter().skip(start_index).progress() {
         for lang in langs.clone() {
             let title_slug = q["titleSlug"].as_str().unwrap();
-            let soln_fn = get_soln_fn(title_slug, lang, model);
+            let soln_fn = get_solution_fn(title_slug, lang, model);
             println!("{:?}", soln_fn);
 
             let sub_path = get_submission_dir(title_slug);
@@ -760,23 +760,26 @@ pub async fn main() -> Result<(), reqwest::Error> {
             match build_submission_json(title_slug, lang, model) {
                 Ok(post_body) => match submit_solution(title_slug, lang, model, post_body).await {
                     Ok(v) => {
-                        println!("{:?}", v);
-                        let id = v["submission_id"].as_i64().unwrap();
-                        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-                        let check = match get_submission_check(&id.to_string()).await {
-                            Ok(check) => check,
-                            Err(e) => {
-                                println!("Error getting submission check: {}", e);
-                                continue;
+                        if let Some(id) = v["submission_id"].as_i64() {
+                            tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+                            let check = match get_submission_check(&id.to_string()).await {
+                                Ok(check) => check,
+                                Err(e) => {
+                                    println!("Error getting submission check id: {}", e);
+                                    continue;
+                                }
+                            };
+                            println!("{:#?}", check);
+                            match save_submission(title_slug, lang, model, &check).await {
+                                Ok(_) => (),
+                                Err(e) => {
+                                    println!("Error saving submission: {}", e);
+                                    continue;
+                                }
                             }
-                        };
-                        println!("{:#?}", check);
-                        match save_submission(title_slug, lang, model, &check).await {
-                            Ok(_) => (),
-                            Err(e) => {
-                                println!("Error saving submission: {}", e);
-                                continue;
-                            }
+                        } else {
+                            println!("Error in response: {:?}", v);
+                            continue;
                         }
                     }
                     Err(e) => {
