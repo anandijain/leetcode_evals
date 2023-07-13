@@ -60,6 +60,9 @@ lazy_static! {
             ("haskell", "haskell"),
             ("groovy", "groovy"),
             ("dart", "dart"),
+            ("elixir", "elixir"),
+            ("racket", "racket"),
+            ("erlang", "erlang"),
         ]
         .into_iter()
         .collect()
@@ -911,7 +914,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start_index = myslug_tups
         .clone()
         .iter()
-        .position(|q| q.to_owned() == parse_my_slug("maximal-rectangle_golang_gpt-3.5-turbo"))
+        .position(|q| {
+            q.to_owned() == parse_my_slug("find-all-numbers-disappeared-in-an-array_golang_gpt-3.5-turbo")
+        })
         .unwrap_or(0);
 
     println!("Start index: {:#?}", start_index);
@@ -922,19 +927,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ps.push(p);
     }
     println!("p: {:#?}", ps[0]);
+    let mut times = vec![];
+    let client = Client::new();
+
+    let mut headers = HeaderMap::new();
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    headers.insert(
+        AUTHORIZATION,
+        HeaderValue::from_str(&format!("Bearer {}", OPENAI_API_KEY)).unwrap(),
+    );
 
     for (filename, data) in ps.iter().skip(start_index).progress() {
         let filename = filename.clone().into_os_string();
 
-        let client = Client::new();
-
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {}", OPENAI_API_KEY)).unwrap(),
-        );
-        // tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await; // Delay to avoid rate limit
         let res = client
             .post("https://api.openai.com/v1/chat/completions")
             .headers(headers.clone())
@@ -953,6 +958,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Err(_) => panic!("Failed to send request"),
         };
+        let local = Local::now();
+        times.push(local);
+        println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
     }
 
     Ok(())
