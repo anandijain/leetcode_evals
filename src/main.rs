@@ -5,9 +5,12 @@ use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
+use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 
 use chrono::{prelude::*, Duration};
+use governor::clock::DefaultClock;
+use governor::{Quota, RateLimiter};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::fs::create_dir_all;
@@ -29,6 +32,31 @@ const TOKEN: &str = "vqXWMXcAkYJu75Pid4qoJCDpQgceZ0zFqgN2AeaPELpaE89289U7USSjkdY
 
 const USER_AGENT_STR: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36";
 const GPT_3_SOLVED_LANGS: [&str; 6] = ["c", "cpp", "java", "javascript", "python3", "rust"];
+
+const BASE_PATH: &str = "/Users/anand/.rust/dev/leetcode_evals/data/data/";
+
+// ignoring SQL and other bullshit
+const ALL_REAL_LANGS: [&str; 17] = [
+    "javascript",
+    // "typescript",
+    // "python",
+    "python3",
+    "java",
+    "cpp",
+    "csharp",
+    "c",
+    "golang",
+    "kotlin",
+    "scala",
+    "ruby",
+    "php",
+    "swift",
+    "rust",
+    "dart",
+    "elixir",
+    "racket",
+    "erlang",
+];
 
 static SLUG_ID_MAP: Lazy<HashMap<String, String>> = Lazy::new(|| {
     let data = fs::read_to_string("problemset.json").expect("Failed to read problemset.json");
@@ -262,35 +290,28 @@ fn extract_content(response: &Value) -> Result<String, Box<dyn Error>> {
 
 // Function to get the directory path
 fn get_directory_path(title_slug: &str) -> PathBuf {
-    Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/").join(title_slug)
+    Path::new(BASE_PATH).join(title_slug)
 }
 
 // Function to get the directory path
 fn get_prompt_dir(title_slug: &str) -> PathBuf {
-    Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
-        .join(title_slug)
-        .join("prompt")
+    Path::new(BASE_PATH).join(title_slug).join("prompt")
 }
 
 // Function to get the directory path
 fn get_solution_dir(title_slug: &str) -> PathBuf {
-    Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
-        .join(title_slug)
-        .join("solutions")
+    Path::new(BASE_PATH).join(title_slug).join("solutions")
 }
 
 // Function to get the directory path
 fn get_submission_dir(title_slug: &str) -> PathBuf {
-    Path::new("/Users/anand/.rust/dev/leetcode_evals/data/data/")
-        .join(title_slug)
-        .join("submissions")
+    Path::new(BASE_PATH).join(title_slug).join("submissions")
 }
 
 // Function to get the prompt path
 fn get_prompt_path(title_slug: &str) -> PathBuf {
     let dir_path = get_prompt_dir(title_slug);
     let f = dir_path.join(format!("{}_prompt.json", title_slug));
-    // println!("{:?}", f);
     f
 }
 
@@ -586,7 +607,7 @@ fn get_questions_for_lang(qs: &Vec<Value>, lang: &str) -> Vec<Value> {
     lqs
 }
 
-fn build_all_bodies(
+fn build_all_mytups(
     qs: Vec<Value>,
     langs: Vec<&str>,
     models: Vec<&str>,
@@ -619,102 +640,6 @@ pub async fn solve(
     save_solution(&slug, &lang, &v).await?;
 
     Ok(v)
-}
-
-// #[tokio::main]
-async fn old_main() -> Result<(), reqwest::Error> {
-    // todo run gpt on csharp golang php scala kotlin swift ruby dart elixir racket erlang
-    // try doing it async to
-    let langs = vec![
-        "golang",
-        "kotlin",
-        "ruby",
-        "scala",
-        "csharp",
-        "php",
-        "swift",
-        "typescript",
-        "dart",
-        "elixir",
-        "racket",
-        "erlang",
-    ];
-    let model = OPENAI_GPT_MODEL;
-    // let start_title_slug = "kth-missing-positive-number";
-    let start_index = 0;
-
-    let client = reqwest::Client::new();
-    let base = "https://leetcode.com/problems/";
-
-    let mut oai_headers = HeaderMap::new();
-    oai_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    oai_headers.insert(
-        AUTHORIZATION,
-        HeaderValue::from_str(&format!("Bearer {}", OPENAI_API_KEY)).unwrap(),
-    );
-
-    let mut headers = HeaderMap::new();
-    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    headers.insert("cookie", HeaderValue::from_static(COOKIE));
-    headers.insert(
-        REFERER,
-        HeaderValue::from_static("https://leetcode.com/problemset/all/"),
-    );
-    headers.insert("x-csrftoken", HeaderValue::from_static(TOKEN));
-
-    let v: Value =
-        serde_json::from_str(&std::fs::read_to_string("problemset.json").unwrap()).unwrap();
-
-    for lang in langs {
-        let questions = v["data"]["problemsetQuestionList"]["questions"]
-            .as_array()
-            .unwrap();
-
-        let free_questions: Vec<_> = questions
-            .iter()
-            .filter(|q| match q["paidOnly"].as_bool() {
-                Some(paid_only) => {
-                    !paid_only
-                        && has_lang(
-                            get_code_snippets(&get_code(&get_title_slug(q)).unwrap()).unwrap(),
-                            lang,
-                        )
-                }
-                None => false,
-            })
-            .collect();
-
-        // let start_index = free_questions
-        //     .iter()
-        //     .position(|q| q["titleSlug"].as_str().unwrap() == start_title_slug)
-        //     .unwrap();
-
-        let mut times = vec![];
-        let mut i = 0;
-        /// todo use solve here
-        for q in free_questions.iter().skip(start_index).progress() {
-            let title_slug = q["titleSlug"].as_str().unwrap();
-            // println!("{}: {}", i, title_slug);
-            let (content, _code) = build_prompt(&title_slug, &lang).unwrap();
-            let full_prompt = format!(
-                "{}\n\n{}\n\nWrite out full solution in a markdown codeblock:",
-                content, _code
-            );
-            let v = match fetch_openai_completion(&full_prompt, model).await {
-                Ok(val) => val,
-                Err(e) => {
-                    eprintln!("Failed to fetch OpenAI completion: {} {}", e, title_slug);
-                    continue; // or however you want to handle the error
-                }
-            };
-            let local = Local::now();
-            times.push(local);
-            println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
-            save_solution(&title_slug, &lang, &v).await.unwrap();
-            i += 1;
-        }
-    }
-    Ok(())
 }
 
 fn get_qs() -> Vec<Value> {
@@ -755,11 +680,21 @@ where
     let mut solutions: HashMap<String, usize> = HashMap::new();
     for q in qs.iter() {
         let slug = get_title_slug(q);
-        for file in get_fns(&slug).unwrap() {
-            let f = file.unwrap();
-            let (_slug, lang, _model) = parse_my_slug_json(&f.file_name().to_str().unwrap());
-            let count = solutions.entry(lang.to_string()).or_insert(0);
-            *count += 1;
+        // println!("slug: {}", slug);
+        match get_fns(&slug) {
+            Ok(files) => {
+                for file in files {
+                    let f = file.unwrap(); // I kept this unwrap, assuming the files are guaranteed to exist. If not, you may want to add error handling here too.
+                    let (_slug, lang, _model) =
+                        parse_my_slug_json(&f.file_name().to_str().unwrap());
+                    let count = solutions.entry(lang.to_string()).or_insert(0);
+                    *count += 1;
+                }
+            }
+            Err(e) => {
+                // eprintln!("Error while trying to read directory of '{}': {}", slug, e);
+                continue;
+            }
         }
     }
     solutions
@@ -809,90 +744,21 @@ fn get_common_questions(langs: Vec<&str>) -> Vec<Value> {
         .collect()
 }
 
-fn display_tally(hm: HashMap<String, usize>) {
-    let mut v: Vec<_> = hm.into_iter().collect();
-    v.sort_by(|a, b| b.1.cmp(&a.1));
+fn display_tally<T>(hm: &HashMap<String, T>)
+where
+    T: Ord + std::fmt::Display,
+{
+    let mut v: Vec<_> = hm.iter().collect();
+    v.sort_by(|a, b| b.1.cmp(a.1));
     for (lang, count) in v {
         println!("{}: {}", lang, count);
     }
 }
-
 // #[tokio::main]
-// async fn main() -> Result<(), Box<dyn Error>> {
-//     let langs = vec!["golang", "kotlin", "ruby", "scala", "csharp", "php", "swift", "typescript", "dart", "elixir", "racket", "erlang"];
-//     let model = OPENAI_GPT_MODEL;
-//     let start_index = 0;
+async fn get_all_solutions() -> Result<(), Box<dyn std::error::Error>> {
+    println!("tally_langs:");
+    display_tally(&tally_langs(get_qs().clone()));
 
-//     let client = reqwest::Client::new();
-//     let base = "https://leetcode.com/problems/";
-
-//     let mut headers = HeaderMap::new();
-//     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-//     headers.insert(
-//         AUTHORIZATION,
-//         HeaderValue::from_str(&format!("Bearer {}", OPENAI_API_KEY))?,
-//     );
-
-//     let v: Value =
-//         serde_json::from_str(&std::fs::read_to_string("problemset.json").unwrap()).unwrap();
-
-//     let mut tasks = vec![];
-//     for lang in langs {
-//         let questions = v["data"]["problemsetQuestionList"]["questions"]
-//             .as_array()
-//             .unwrap()
-//             .clone(); // You may need to clone the questions if you can't share ownership between tasks
-
-//         let task = tokio::spawn(async move {
-//             let free_questions: Vec<_> = questions
-//                 .iter()
-//                 .filter(|q| match q["paidOnly"].as_bool() {
-//                     Some(paid_only) => {
-//                         !paid_only
-//                             && has_lang(
-//                                 get_code_snippets(&get_code(&get_title_slug(q)).unwrap()).unwrap(),
-//                                 lang,
-//                             )
-//                     }
-//                     None => false,
-//                 })
-//                 .collect();
-
-//             let mut times = vec![];
-//             let mut i = 0;
-//             for q in free_questions.iter().skip(start_index).progress() {
-//                 let title_slug = q["titleSlug"].as_str().unwrap();
-//                 let (content, _code) = build_prompt(&title_slug, &lang).unwrap();
-//                 let full_prompt = format!(
-//                     "{}\n\n{}\n\nWrite out full solution in a markdown codeblock:",
-//                     content, _code
-//                 );
-//                 let v = match fetch_openai_completion(&full_prompt, model).await {
-//                     Ok(val) => val,
-//                     Err(e) => {
-//                         eprintln!("Failed to fetch OpenAI completion: {} {}", e, title_slug);
-//                         continue;
-//                     }
-//                 };
-//                 let local = Local::now();
-//                 times.push(local);
-//                 println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
-//                 save_solution(&title_slug, &lang, &v).await.unwrap();
-//                 i += 1;
-//             }
-//         });
-//         tasks.push(task);
-//     }
-//     println!("num tasks: {}", tasks.len());
-//     // for task in tasks {
-//     //     task.await?;
-//     // }
-
-//     Ok(())
-// }
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let langs = vec![
         "golang",
         "kotlin",
@@ -907,15 +773,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "racket",
         "erlang",
     ];
+
     let models = vec![OPENAI_GPT_MODEL];
     let qs = get_qs();
-    let myslug_tups = build_all_bodies(qs, langs.clone(), models.clone());
+    let myslug_tups = build_all_mytups(qs, ALL_REAL_LANGS.to_vec().clone(), models.clone());
 
     let start_index = myslug_tups
         .clone()
         .iter()
         .position(|q| {
-            q.to_owned() == parse_my_slug("find-all-numbers-disappeared-in-an-array_golang_gpt-3.5-turbo")
+            q.to_owned() == parse_my_slug("moving-stones-until-consecutive-ii_erlang_gpt-3.5-turbo")
         })
         .unwrap_or(0);
 
@@ -966,74 +833,99 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub async fn submit_main() -> Result<(), reqwest::Error> {
-    let langs: Vec<&str> = vec!["c", "cpp", "java", "javascript", "python3", "rust"];
+#[tokio::main]
+pub async fn main() -> Result<(), reqwest::Error> {
+    let limiter = RateLimiter::direct(Quota::per_minute(NonZeroU32::new(20).unwrap()));
 
-    let qs = get_common_questions(langs.clone());
-
+    // let qs = get_common_questions(langs.clone());
+    let qs = get_qs();
     let start_index = qs
         .iter()
         .position(|q| {
-            q["titleSlug"].as_str().unwrap() == "random-point-in-non-overlapping-rectangles"
+            q["titleSlug"].as_str().unwrap()
+                == "moving-stones-until-consecutive-ii_erlang_gpt-3.5-turbo"
         })
         .unwrap_or(0);
+    let lang_tally = tally_langs(qs.clone());
+    let sol_tally = tally_solutions(qs.clone());
+    let sub_tally = tally_submissions(qs.clone());
     println!("Start index: {:#?}", start_index);
 
     println!("Start question: {:#?}", qs[start_index]);
     println!("tally_langs:");
-    display_tally(tally_langs(qs.clone()));
+    display_tally(&lang_tally);
     println!("\ntally_solutions:");
-    display_tally(tally_solutions(qs.clone()));
+    display_tally(&sol_tally);
     println!("\ntally_submissions:");
-    display_tally(tally_submissions(qs.clone()));
+    display_tally(&sub_tally);
     println!("\nQuestions in testset: {:#?}", qs.len());
 
+    println!("\nDifference between tally_langs and tally_solutions:");
+    let mut diff_map: HashMap<String, isize> = HashMap::new();
+    for (lang, &count) in lang_tally.iter() {
+        let sol_count = sol_tally.get(lang).unwrap_or(&0);
+        let diff = count as isize - *sol_count as isize;
+        diff_map.insert(lang.clone(), diff);
+    }
+    display_tally(&diff_map);
+
     let model = OPENAI_GPT_MODEL;
-
-    for q in qs.iter().skip(start_index).progress() {
-        for lang in langs.clone() {
-            let title_slug = q["titleSlug"].as_str().unwrap();
-            let soln_fn = get_solution_fn(title_slug, lang, model);
-            println!("{:?}", soln_fn);
-
-            let sub_path = get_submission_dir(title_slug);
-
-            match build_submission_json(title_slug, lang, model) {
-                Ok(post_body) => match submit_solution(title_slug, lang, model, post_body).await {
-                    Ok(v) => {
-                        if let Some(id) = v["submission_id"].as_i64() {
-                            tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-                            let check = match get_submission_check(&id.to_string()).await {
-                                Ok(check) => check,
-                                Err(e) => {
-                                    println!("Error getting submission check id: {}", e);
-                                    continue;
-                                }
-                            };
-                            println!("{:#?}", check);
-                            match save_submission(title_slug, lang, model, &check).await {
-                                Ok(_) => (),
-                                Err(e) => {
-                                    println!("Error saving submission: {}", e);
-                                    continue;
-                                }
-                            }
-                        } else {
-                            println!("Error in response: {:?}", v);
-                            continue;
-                        }
-                    }
-                    Err(e) => {
-                        println!("Error submitting solution: {}", e);
-                        continue;
-                    }
-                },
-                Err(e) => {
-                    println!("Error building submission JSON: {}", e);
-                }
-            }
+    let models = vec![model];
+    let qs = get_qs();
+    let myslug_tups = build_all_mytups(qs, ALL_REAL_LANGS.to_vec().clone(), models.clone());
+    for (slug, lang, model) in myslug_tups.iter().progress() {
+        // let p = build_oai_pair(&slug, &lang, &model);
+        // println!("p: {:#?}", p);
+        let soln_path = get_solution_fn(&slug, &lang, &model);
+        if !soln_path.exists() {
+            println!("{} does not exist", soln_path.to_str().unwrap());
+            solve(&slug, &lang, &model).await.unwrap();
         }
     }
+    // for q in qs.iter().skip(start_index).progress() {
+    //     for lang in langs.clone() {
+    //         let title_slug = q["titleSlug"].as_str().unwrap();
+    //         let soln_fn = get_solution_fn(title_slug, lang, model);
+    //         println!("{:?}", soln_fn);
+
+    //         let sub_path = get_submission_dir(title_slug);
+
+    //         match build_submission_json(title_slug, lang, model) {
+    //             Ok(post_body) => match submit_solution(title_slug, lang, model, post_body).await {
+    //                 Ok(v) => {
+    //                     if let Some(id) = v["submission_id"].as_i64() {
+    //                         tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+    //                         let check = match get_submission_check(&id.to_string()).await {
+    //                             Ok(check) => check,
+    //                             Err(e) => {
+    //                                 println!("Error getting submission check id: {}", e);
+    //                                 continue;
+    //                             }
+    //                         };
+    //                         println!("{:#?}", check);
+    //                         match save_submission(title_slug, lang, model, &check).await {
+    //                             Ok(_) => (),
+    //                             Err(e) => {
+    //                                 println!("Error saving submission: {}", e);
+    //                                 continue;
+    //                             }
+    //                         }
+    //                     } else {
+    //                         println!("Error in response: {:?}", v);
+    //                         continue;
+    //                     }
+    //                 }
+    //                 Err(e) => {
+    //                     println!("Error submitting solution: {}", e);
+    //                     continue;
+    //                 }
+    //             },
+    //             Err(e) => {
+    //                 println!("Error building submission JSON: {}", e);
+    //             }
+    //         }
+    //     }
+    // }
 
     Ok(())
 }
