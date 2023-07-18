@@ -36,10 +36,10 @@ const GPT_3_SOLVED_LANGS: [&str; 6] = ["c", "cpp", "java", "javascript", "python
 const BASE_PATH: &str = "/Users/anand/.rust/dev/leetcode_evals/data/data/";
 
 // ignoring SQL and other bullshit
-const ALL_REAL_LANGS: [&str; 17] = [
+const ALL_REAL_LANGS: &[&str] = &[
     "javascript",
-    // "typescript",
-    // "python",
+    "typescript",
+    "python",
     "python3",
     "java",
     "cpp",
@@ -435,12 +435,16 @@ fn get_solution_fns(slug: &str) -> Result<std::fs::ReadDir, std::io::Error> {
     std::fs::read_dir(get_solution_dir(slug))
 }
 
+fn get_solution_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
+    get_solution_dir(title_slug).join(my_slug_json(title_slug, lang, model))
+}
+
 fn get_submission_fns(slug: &str) -> Result<std::fs::ReadDir, std::io::Error> {
     std::fs::read_dir(get_submission_dir(slug))
 }
 
-fn get_solution_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
-    get_solution_dir(title_slug).join(my_slug_json(title_slug, lang, model))
+fn get_submission_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
+    get_submission_dir(title_slug).join(my_slug_json(title_slug, lang, model))
 }
 
 async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Result<()> {
@@ -448,7 +452,7 @@ async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Resu
     tokio::fs::create_dir_all(&dir_path).await?;
     let file_path = dir_path.join(get_solution_fn(title_slug, lang, OPENAI_GPT_MODEL));
     println!("{:?}", file_path);
-    tokio::fs::write(file_path, v.to_string()).await
+    tokio::fs::write(file_path, format!("{:#}", v)).await
 }
 
 async fn save_submission(
@@ -460,8 +464,7 @@ async fn save_submission(
     let dir_path = get_submission_dir(title_slug);
     tokio::fs::create_dir_all(&dir_path).await?;
     let file_path = dir_path.join(my_slug_json(title_slug, lang, model));
-    println!("{:?}", file_path);
-    tokio::fs::write(file_path, v.to_string()).await
+    tokio::fs::write(file_path, format!("{:#}", v)).await
 }
 
 fn build_submission_json(
@@ -846,6 +849,7 @@ pub async fn main() -> Result<(), reqwest::Error> {
                 == "moving-stones-until-consecutive-ii_erlang_gpt-3.5-turbo"
         })
         .unwrap_or(0);
+
     let lang_tally = tally_langs(qs.clone());
     let sol_tally = tally_solutions(qs.clone());
     let sub_tally = tally_submissions(qs.clone());
@@ -872,60 +876,54 @@ pub async fn main() -> Result<(), reqwest::Error> {
     let model = OPENAI_GPT_MODEL;
     let models = vec![model];
     let qs = get_qs();
-    let myslug_tups = build_all_mytups(qs, ALL_REAL_LANGS.to_vec().clone(), models.clone());
+    let myslug_tups = build_all_mytups(qs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
     for (slug, lang, model) in myslug_tups.iter().progress() {
-        // let p = build_oai_pair(&slug, &lang, &model);
-        // println!("p: {:#?}", p);
-        let soln_path = get_solution_fn(&slug, &lang, &model);
-        if !soln_path.exists() {
-            println!("{} does not exist", soln_path.to_str().unwrap());
+        if !get_solution_fn(&slug, &lang, &model).exists() {
             solve(&slug, &lang, &model).await.unwrap();
         }
+
+        if get_submission_fn(slug, lang, model).exists() {
+            continue;
+        }
+
+        match build_submission_json(slug, lang, model) {
+            Ok(post_body) => match submit_solution(slug, lang, model, post_body).await {
+                Ok(v) => {
+                    if let Some(id) = v["submission_id"].as_i64() {
+                        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+                        let check = match get_submission_check(&id.to_string()).await {
+                            Ok(check) => check,
+                            Err(e) => {
+                                println!("Error getting submission check id: {}", e);
+                                continue;
+                            }
+                        };
+                        println!("{:#?}", check);
+                        match save_submission(slug, lang, model, &check).await {
+                            Ok(_) => {
+                                let local = Local::now();
+                                println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+                            }
+                            Err(e) => {
+                                println!("Error saving submission: {}", e);
+                                continue;
+                            }
+                        }
+                    } else {
+                        println!("Error in response: {:?}", v);
+                        continue;
+                    }
+                }
+                Err(e) => {
+                    println!("Error submitting solution (most likely rate limited by leetcode): {}", e);
+                    continue;
+                }
+            },
+            Err(e) => {
+                println!("Error building {} submission JSON: {}", my_slug(slug, lang, model), e);
+            }
+        }
     }
-    // for q in qs.iter().skip(start_index).progress() {
-    //     for lang in langs.clone() {
-    //         let title_slug = q["titleSlug"].as_str().unwrap();
-    //         let soln_fn = get_solution_fn(title_slug, lang, model);
-    //         println!("{:?}", soln_fn);
-
-    //         let sub_path = get_submission_dir(title_slug);
-
-    //         match build_submission_json(title_slug, lang, model) {
-    //             Ok(post_body) => match submit_solution(title_slug, lang, model, post_body).await {
-    //                 Ok(v) => {
-    //                     if let Some(id) = v["submission_id"].as_i64() {
-    //                         tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-    //                         let check = match get_submission_check(&id.to_string()).await {
-    //                             Ok(check) => check,
-    //                             Err(e) => {
-    //                                 println!("Error getting submission check id: {}", e);
-    //                                 continue;
-    //                             }
-    //                         };
-    //                         println!("{:#?}", check);
-    //                         match save_submission(title_slug, lang, model, &check).await {
-    //                             Ok(_) => (),
-    //                             Err(e) => {
-    //                                 println!("Error saving submission: {}", e);
-    //                                 continue;
-    //                             }
-    //                         }
-    //                     } else {
-    //                         println!("Error in response: {:?}", v);
-    //                         continue;
-    //                     }
-    //                 }
-    //                 Err(e) => {
-    //                     println!("Error submitting solution: {}", e);
-    //                     continue;
-    //                 }
-    //             },
-    //             Err(e) => {
-    //                 println!("Error building submission JSON: {}", e);
-    //             }
-    //         }
-    //     }
-    // }
 
     Ok(())
 }
