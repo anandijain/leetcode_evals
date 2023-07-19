@@ -9,6 +9,7 @@ use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 
 use chrono::{prelude::*, Duration};
+use cookie::Cookie;
 use governor::clock::DefaultClock;
 use governor::{Quota, RateLimiter};
 use once_cell::sync::Lazy;
@@ -26,12 +27,18 @@ extern crate lazy_static;
 const OPENAI_API_KEY: &str = env!("OPENAI_API_KEY");
 const OPENAI_GPT_MODEL: &str = "gpt-3.5-turbo";
 // const OPENAI_GPT_MODEL: &str = "gpt-4";
-const CSRF_TOKEN: &str = "vqXWMXcAkYJu75Pid4qoJCDpQgceZ0zFqgN2AeaPELpaE89289U7USSjkdYDrXXo";
-const COOKIE: &str = "csrftoken=vqXWMXcAkYJu75Pid4qoJCDpQgceZ0zFqgN2AeaPELpaE89289U7USSjkdYDrXXo; messages=\"ce012aae62d93e5358036fbb514a4ba766fad69e$[[\\\"__json_message\\\",0,25,\\\"Successfully signed in as anandjain.\\\"],[\\\"__json_message\\\",0,25,\\\"Successfully signed in as anandjain.\\\"]]; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMzYwNTc2OCIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImRqYW5nby5jb250cmliLmF1dGguYmFja2VuZHMuTW9kZWxCYWNrZW5kIiwiX2F1dGhfdXNlcl9oYXNoIjoiMjEwNWIxYWQ3ZjNhOWNhMmZiMzc1N2FhNzEzZjQ4MmFiNTMxOWVmNyIsImlkIjozNjA1NzY4LCJlbWFpbCI6ImRhaG1laC5hbG1vc0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kamFpbiIsInVzZXJfc2x1ZyI6ImFuYW5kamFpbiIsImF2YXRhciI6Imh0dHBzOi8vYXNzZXRzLmxlZXRjb2RlLmNvbS91c2Vycy9hdmF0YXJzL2F2YXRhcl8xNjc4OTA5MTg5LnBuZyIsInJlZnJlc2hlZF9hdCI6MTY4OTEzODk2MSwiaXAiOiI2Ni4zMC4yMjMuOSIsImlkZW50aXR5IjoiNWYwZmY1ZDg3OTllZDRjMGVkMzU1ZmE0NzRhN2JiYzIiLCJzZXNzaW9uX2lkIjo0MjQzNjg5NCwiX3Nlc3Npb25fZXhwaXJ5IjoxMjA5NjAwfQ.NLrgwyu-mQchlpOr0LzaB_FGUOdguZlWmGNGkYZEDLs; _dd_s=rum=1&id=0117f673-b41c-4903-a298-74dc9c61d369&created=1689138954646&expire=1689139941224";
-const TOKEN: &str = "vqXWMXcAkYJu75Pid4qoJCDpQgceZ0zFqgN2AeaPELpaE89289U7USSjkdYDrXXo";
 
+const COOKIES: &[&str] = &[
+    "csrftoken=vqXWMXcAkYJu75Pid4qoJCDpQgceZ0zFqgN2AeaPELpaE89289U7USSjkdYDrXXo; messages=\"ce012aae62d93e5358036fbb514a4ba766fad69e$[[\\\"__json_message\\\",0,25,\\\"Successfully signed in as anandjain.\\\"],[\\\"__json_message\\\",0,25,\\\"Successfully signed in as anandjain.\\\"]]; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMzYwNTc2OCIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImRqYW5nby5jb250cmliLmF1dGguYmFja2VuZHMuTW9kZWxCYWNrZW5kIiwiX2F1dGhfdXNlcl9oYXNoIjoiMjEwNWIxYWQ3ZjNhOWNhMmZiMzc1N2FhNzEzZjQ4MmFiNTMxOWVmNyIsImlkIjozNjA1NzY4LCJlbWFpbCI6ImRhaG1laC5hbG1vc0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kamFpbiIsInVzZXJfc2x1ZyI6ImFuYW5kamFpbiIsImF2YXRhciI6Imh0dHBzOi8vYXNzZXRzLmxlZXRjb2RlLmNvbS91c2Vycy9hdmF0YXJzL2F2YXRhcl8xNjc4OTA5MTg5LnBuZyIsInJlZnJlc2hlZF9hdCI6MTY4OTEzODk2MSwiaXAiOiI2Ni4zMC4yMjMuOSIsImlkZW50aXR5IjoiNWYwZmY1ZDg3OTllZDRjMGVkMzU1ZmE0NzRhN2JiYzIiLCJzZXNzaW9uX2lkIjo0MjQzNjg5NCwiX3Nlc3Npb25fZXhwaXJ5IjoxMjA5NjAwfQ.NLrgwyu-mQchlpOr0LzaB_FGUOdguZlWmGNGkYZEDLs; _dd_s=rum=1&id=0117f673-b41c-4903-a298-74dc9c61d369&created=1689138954646&expire=1689139941224", //anandijain
+    r#"csrftoken=Jjxy8fQjnLP0B3ETRJ5ZU8ObHjKB6NQUMGMziPuNL78ylp5CPiM9FYehS6BXhr3w; messages="40f1b87013c4898ef73e5b0025fdc1d3bd31d22a$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain2.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgwOTMiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjY1OTc3NGI0MjBlNmNhNTRkZjMyMzEzZDhlN2U5NjI1YTAyN2I2OTkiLCJpZCI6MTAxMzgwOTMsImVtYWlsIjoidGhpc2lzYWdhZ0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kaWphaW4yIiwidXNlcl9zbHVnIjoiYW5hbmRpamFpbjIiLCJhdmF0YXIiOiJodHRwczovL3MzLXVzLXdlc3QtMS5hbWF6b25hd3MuY29tL3MzLWxjLXVwbG9hZC9hc3NldHMvZGVmYXVsdF9hdmF0YXIuanBnIiwicmVmcmVzaGVkX2F0IjoxNjg5NzI0MzcwLCJpcCI6IjY2LjMwLjIyMy45IiwiaWRlbnRpdHkiOiI1ZjBmZjVkODc5OWVkNGMwZWQzNTVmYTQ3NGE3YmJjMiIsInNlc3Npb25faWQiOjQyODA2Mjk4LCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.eoq38F3K7YgXzom6T8tHRT_lUaN4hT3-PA9R5PYxdNI; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=2&id=7ca1b08c-270c-4a6d-849c-cfdd45b0425c&created=1689724363696&expire=1689725290252"#,
+    r#"csrftoken=TfAg1y36XrJjGQ1GdZJWDOSQ11ZnK2lpPW9zzzhqt4eqQBQIb2nPyBS82YFiy9bS; messages="933207930920dd9ca86f3ebb068c06d4926043f4$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain3.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyMzQiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjQ5MWU2ODk5Y2Y1ZDM4NjRkNTc0OTVlN2FkMzI4ZDZiYWVmMDQwNTMiLCJpZCI6MTAxMzgyMzQsImVtYWlsIjoiYW5hbmRhc2gyQGdtYWlsLmNvbSIsInVzZXJuYW1lIjoiYW5hbmRpamFpbjMiLCJ1c2VyX3NsdWciOiJhbmFuZGlqYWluMyIsImF2YXRhciI6Imh0dHBzOi8vczMtdXMtd2VzdC0xLmFtYXpvbmF3cy5jb20vczMtbGMtdXBsb2FkL2Fzc2V0cy9kZWZhdWx0X2F2YXRhci5qcGciLCJyZWZyZXNoZWRfYXQiOjE2ODk3MjQ1NTcsImlwIjoiNjYuMzAuMjIzLjkiLCJpZGVudGl0eSI6IjVmMGZmNWQ4Nzk5ZWQ0YzBlZDM1NWZhNDc0YTdiYmMyIiwic2Vzc2lvbl9pZCI6NDI4MDYzNjUsIl9zZXNzaW9uX2V4cGlyeSI6MTIwOTYwMH0.Or_EnxwAWMMTlfg3hYEi-cfsDwYmh2FvrRTnfiQG_eI; _dd_s=rum=0&expire=1689725474935"#,
+    r#"csrftoken=M6KLflMyIB3wb8WYyaayYFrC9lU02LaqPc1tmUEsHiIDY7q5Rb9VcRnV4kHv2ALf; messages="bb0c0d208dc7c09f59ec1e3384ed885072da2eff$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain4.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyNDUiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjQ3NTBlYzQ2ODIwYmY5YzU4NDYzZTFjMmE1MGZjYzA3MTViNGM2ZWIiLCJpZCI6MTAxMzgyNDUsImVtYWlsIjoib25lb2ZtYW55bWFnbnVtb3BhaUBnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kaWphaW40IiwidXNlcl9zbHVnIjoiYW5hbmRpamFpbjQiLCJhdmF0YXIiOiJodHRwczovL3MzLXVzLXdlc3QtMS5hbWF6b25hd3MuY29tL3MzLWxjLXVwbG9hZC9hc3NldHMvZGVmYXVsdF9hdmF0YXIuanBnIiwicmVmcmVzaGVkX2F0IjoxNjg5NzIxODgxLCJpcCI6IjY2LjMwLjIyMy45IiwiaWRlbnRpdHkiOiI1ZjBmZjVkODc5OWVkNGMwZWQzNTVmYTQ3NGE3YmJjMiIsInNlc3Npb25faWQiOjQyODA1NDcxLCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.QsBFXNi0twb6SKC6ngALv-8mlViRkztB75oiGBU7bDY; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1689722804792"#,
+    r#"csrftoken=iR0qA1m253k02nHhf1sF59kEZYfkLVtFfNMHhJTd3akHwpQnwiYJEixhmNHrbeDe; messages="e3c5c17025394d2347b1038aa9b84747c33faa0b$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain5.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyNjciLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjI4YWE2OWNjY2ExMWNjZmRiZDg1Y2QwZTcxNzJmNDJmZWQ3ZDM3N2MiLCJpZCI6MTAxMzgyNjcsImVtYWlsIjoicmFkaWF0b3IucnVub2ZmQGdtYWlsLmNvbSIsInVzZXJuYW1lIjoiYW5hbmRpamFpbjUiLCJ1c2VyX3NsdWciOiJhbmFuZGlqYWluNSIsImF2YXRhciI6Imh0dHBzOi8vczMtdXMtd2VzdC0xLmFtYXpvbmF3cy5jb20vczMtbGMtdXBsb2FkL2Fzc2V0cy9kZWZhdWx0X2F2YXRhci5qcGciLCJyZWZyZXNoZWRfYXQiOjE2ODk3MjIyMjgsImlwIjoiNjYuMzAuMjIzLjkiLCJpZGVudGl0eSI6IjVmMGZmNWQ4Nzk5ZWQ0YzBlZDM1NWZhNDc0YTdiYmMyIiwic2Vzc2lvbl9pZCI6NDI4MDU1ODUsIl9zZXNzaW9uX2V4cGlyeSI6MTIwOTYwMH0.Ee6x4W0ydvTANrVhnZvrjkdqIpKJiq-OBz62-1MFV9Y; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1689723164062"#,
+    ];
+
+const COOKIE: &str = COOKIES[2];
+const CSRF_TOKEN: &str = "TfAg1y36XrJjGQ1GdZJWDOSQ11ZnK2lpPW9zzzhqt4eqQBQIb2nPyBS82YFiy9bS";
 const USER_AGENT_STR: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36";
-const GPT_3_SOLVED_LANGS: [&str; 6] = ["c", "cpp", "java", "javascript", "python3", "rust"];
 
 const BASE_PATH: &str = "/Users/anand/.rust/dev/leetcode_evals/data/data/";
 
@@ -127,7 +134,7 @@ async fn get_problemset() -> Result<(), reqwest::Error> {
         REFERER,
         HeaderValue::from_static("https://leetcode.com/problemset/all/"),
     );
-    headers.insert("x-csrftoken", HeaderValue::from_static(TOKEN));
+    headers.insert("x-csrftoken", HeaderValue::from_static(CSRF_TOKEN));
 
     let data = json!({
         "query": "\n    query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {\n  problemsetQuestionList: questionList(\n    categorySlug: $categorySlug\n    limit: $limit\n    skip: $skip\n    filters: $filters\n  ) {\n    total: totalNum\n    questions: data {\n      acRate\n      difficulty\n      freqBar\n      frontendQuestionId: questionFrontendId\n      isFavor\n      paidOnly: isPaidOnly\n      status\n      title\n      titleSlug\n      topicTags {\n        name\n        id\n        slug\n      }\n      hasSolution\n      hasVideoSolution\n    }\n  }\n}\n",
@@ -182,7 +189,7 @@ async fn get_problems_and_code() -> Result<(), reqwest::Error> {
         REFERER,
         HeaderValue::from_static("https://leetcode.com/problemset/all/"),
     );
-    headers.insert("x-csrftoken", HeaderValue::from_static(TOKEN));
+    headers.insert("x-csrftoken", HeaderValue::from_static(CSRF_TOKEN));
 
     let v: Value =
         serde_json::from_str(&std::fs::read_to_string("problemset.json").unwrap()).unwrap();
@@ -504,8 +511,8 @@ pub async fn submit_solution(
 
     // Build the headers
     let mut headers = HeaderMap::new();
-    headers.insert("X-CSRFToken", HeaderValue::from_static(CSRF_TOKEN));
     headers.insert("Cookie", HeaderValue::from_static(COOKIE));
+    headers.insert("X-CSRFToken", HeaderValue::from_static(CSRF_TOKEN));
     headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
@@ -552,7 +559,7 @@ pub async fn get_submission_check(id: &str) -> Result<Value, Box<dyn std::error:
     headers.insert("sec-fetch-site", HeaderValue::from_static("none"));
     headers.insert("sec-fetch-user", HeaderValue::from_static("?1"));
     headers.insert("upgrade-insecure-requests", HeaderValue::from_static("1"));
-    headers.insert("user-agent", HeaderValue::from_static("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"));
+    headers.insert("user-agent", HeaderValue::from_static(USER_AGENT_STR));
 
     let client = Client::new();
     let url = format!("https://leetcode.com/submissions/detail/{}/check/", id);
@@ -643,6 +650,12 @@ pub async fn solve(
     save_solution(&slug, &lang, &v).await?;
 
     Ok(v)
+}
+
+async fn submit(slug: &str, lang: &str, model: &str) -> Result<Value, Box<dyn std::error::Error>> {
+    let post_body = build_submission_json(slug, lang, model)?;
+    let json_response = submit_solution(slug, lang, model, post_body).await?;
+    Ok(json_response)
 }
 
 fn get_qs() -> Vec<Value> {
@@ -757,105 +770,46 @@ where
         println!("{}: {}", lang, count);
     }
 }
-// #[tokio::main]
-async fn get_all_solutions() -> Result<(), Box<dyn std::error::Error>> {
-    println!("tally_langs:");
-    display_tally(&tally_langs(get_qs().clone()));
 
-    let langs = vec![
-        "golang",
-        "kotlin",
-        "ruby",
-        "scala",
-        "csharp",
-        "php",
-        "swift",
-        "typescript",
-        "dart",
-        "elixir",
-        "racket",
-        "erlang",
-    ];
-
-    let models = vec![OPENAI_GPT_MODEL];
-    let qs = get_qs();
-    let myslug_tups = build_all_mytups(qs, ALL_REAL_LANGS.to_vec().clone(), models.clone());
-
-    let start_index = myslug_tups
-        .clone()
-        .iter()
-        .position(|q| {
-            q.to_owned() == parse_my_slug("moving-stones-until-consecutive-ii_erlang_gpt-3.5-turbo")
-        })
-        .unwrap_or(0);
-
-    println!("Start index: {:#?}", start_index);
-    println!("myslug_tups: {:#?}", myslug_tups.len());
-    let mut ps = vec![];
-    for (slug, lang, model) in myslug_tups {
-        let p = build_oai_pair(&slug, &lang, &model);
-        ps.push(p);
+fn build_cookie_map(cookie_str: &str) -> HashMap<String, String> {
+    let mut cookie_map: HashMap<String, String> = HashMap::new();
+    for cookie in Cookie::split_parse(cookie_str) {
+        let cookie = cookie.unwrap();
+        cookie_map.insert(cookie.name().to_string(), cookie.value().to_string());
     }
-    println!("p: {:#?}", ps[0]);
-    let mut times = vec![];
-    let client = Client::new();
+    cookie_map
+}
 
-    let mut headers = HeaderMap::new();
-    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    headers.insert(
-        AUTHORIZATION,
-        HeaderValue::from_str(&format!("Bearer {}", OPENAI_API_KEY)).unwrap(),
-    );
-
-    for (filename, data) in ps.iter().skip(start_index).progress() {
-        let filename = filename.clone().into_os_string();
-
-        let res = client
-            .post("https://api.openai.com/v1/chat/completions")
-            .headers(headers.clone())
-            .json(&data)
-            .send()
-            .await;
-
-        match res {
-            Ok(res) => {
-                let text = res.text().await.unwrap();
-                let mut file = File::create(&filename).expect("create failed");
-                file.write_all(text.as_bytes()).expect("write failed");
-
-                println!("Saved to: {:?}", filename);
-                // println!("resp to: {:?}", text);
-            }
-            Err(_) => panic!("Failed to send request"),
-        };
-        let local = Local::now();
-        times.push(local);
-        println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
-    }
-
-    Ok(())
+fn csrftoken_from_cookie_str(cookie_str: &str) -> String {
+    let cookie_map = build_cookie_map(cookie_str);
+    cookie_map.get("csrftoken").unwrap().to_string()
 }
 
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
-    let limiter = RateLimiter::direct(Quota::per_minute(NonZeroU32::new(20).unwrap()));
+    let start_slug = "two-sum_java_gpt-3.5-turbo";
 
-    // let qs = get_common_questions(langs.clone());
+    let (slug, lang, _model) = parse_my_slug(start_slug);
+    let model = OPENAI_GPT_MODEL;
+    let models = vec![model];
     let qs = get_qs();
-    let start_index = qs
+
+    let myslug_tups: Vec<(String, String, String)> =
+        build_all_mytups(qs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
+
+    let start_index = myslug_tups
         .iter()
-        .position(|q| {
-            q["titleSlug"].as_str().unwrap()
-                == "moving-stones-until-consecutive-ii_erlang_gpt-3.5-turbo"
-        })
+        .position(|ms| ms.0 == slug && ms.1 == lang && ms.2 == _model)
         .unwrap_or(0);
+
+    println!("Start index: {:#?}", start_index);
 
     let lang_tally = tally_langs(qs.clone());
     let sol_tally = tally_solutions(qs.clone());
     let sub_tally = tally_submissions(qs.clone());
-    println!("Start index: {:#?}", start_index);
 
-    println!("Start question: {:#?}", qs[start_index]);
+    println!("Start myslug: {:#?}", myslug_tups[start_index]);
+
     println!("tally_langs:");
     display_tally(&lang_tally);
     println!("\ntally_solutions:");
@@ -873,56 +827,94 @@ pub async fn main() -> Result<(), reqwest::Error> {
     }
     display_tally(&diff_map);
 
-    let model = OPENAI_GPT_MODEL;
-    let models = vec![model];
-    let qs = get_qs();
-    let myslug_tups = build_all_mytups(qs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
-    for (slug, lang, model) in myslug_tups.iter().progress() {
-        if !get_solution_fn(&slug, &lang, &model).exists() {
-            solve(&slug, &lang, &model).await.unwrap();
-        }
-
-        if get_submission_fn(slug, lang, model).exists() {
-            continue;
-        }
-
-        match build_submission_json(slug, lang, model) {
-            Ok(post_body) => match submit_solution(slug, lang, model, post_body).await {
-                Ok(v) => {
-                    if let Some(id) = v["submission_id"].as_i64() {
-                        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-                        let check = match get_submission_check(&id.to_string()).await {
-                            Ok(check) => check,
-                            Err(e) => {
-                                println!("Error getting submission check id: {}", e);
-                                continue;
-                            }
-                        };
-                        println!("{:#?}", check);
-                        match save_submission(slug, lang, model, &check).await {
-                            Ok(_) => {
-                                let local = Local::now();
-                                println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
-                            }
-                            Err(e) => {
-                                println!("Error saving submission: {}", e);
-                                continue;
-                            }
-                        }
-                    } else {
-                        println!("Error in response: {:?}", v);
-                        continue;
-                    }
-                }
-                Err(e) => {
-                    println!("Error submitting solution (most likely rate limited by leetcode): {}", e);
-                    continue;
-                }
-            },
+    let sub = submit(&slug, &lang, &model).await.unwrap();
+    println!("{:#?}", sub);
+    if let Some(id) = sub["submission_id"].as_i64() {
+        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+        let check = match get_submission_check(&id.to_string()).await {
+            Ok(check) => check,
             Err(e) => {
-                println!("Error building {} submission JSON: {}", my_slug(slug, lang, model), e);
+                panic!("Error getting submission check id: {}", e);
+                // continue;
+            }
+        };
+        println!("{:#?}", check);
+        match save_submission(&slug, &lang, model, &check).await {
+            Ok(_) => {
+                let local = Local::now();
+                println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+            }
+            Err(e) => {
+                println!("Error saving submission: {}", e);
+                // continue;
             }
         }
+    }
+    for (slug, lang, model) in myslug_tups.iter().progress() {
+        if !get_solution_fn(&slug, &lang, &model).exists() {
+            // continue;
+            solve(&slug, &lang, &model).await.unwrap();
+            let local = Local::now();
+            println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+        }
+
+        // if get_submission_fn(slug, lang, model).exists() {
+        //     println!("Submission already exists for {:?}!", get_submission_fn(slug, lang, model));
+        //     continue;
+        // }
+
+        // match build_submission_json(slug, lang, model) {
+        //     Ok(post_body) => match submit_solution(slug, lang, model, post_body).await {
+        //         Ok(v) => {
+        //             if let Some(id) = v["submission_id"].as_i64() {
+        //                 tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+        //                 let check = match get_submission_check(&id.to_string()).await {
+        //                     Ok(check) => check,
+        //                     Err(e) => {
+        //                         println!("Error getting submission check id: {}", e);
+        //                         continue;
+        //                     }
+        //                 };
+        //                 println!("{:#?}", check);
+        //                 match save_submission(slug, lang, model, &check).await {
+        //                     Ok(_) => {
+        //                         let local = Local::now();
+        //                         println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+        //                     }
+        //                     Err(e) => {
+        //                         println!("Error saving submission: {}", e);
+        //                         continue;
+        //                     }
+        //                 }
+        //             } else {
+        //                 if let Some(error) = v.get("error").and_then(|error| error.as_str()) {
+        //                     if error == "User is not authenticated" {
+        //                         panic!("User is not authenticated");
+        //                     } else if error == "Submission disabled for this question." {
+        //                         continue;
+        //                     }
+        //                 } else {
+        //                     panic!("Error in response: {:?}", v);
+        //                     continue;
+        //                 }
+        //             }
+        //         }
+        //         Err(e) => {
+        //             panic!(
+        //                 "Error submitting solution (most likely rate limited by leetcode): {}",
+        //                 e
+        //             );
+        //             continue;
+        //         }
+        //     },
+        //     Err(e) => {
+        //         println!(
+        //             "Error building {} submission JSON: {}",
+        //             my_slug(slug, lang, model),
+        //             e
+        //         );
+        //     }
+        // }
     }
 
     Ok(())
