@@ -484,16 +484,29 @@ async fn save_submission(
     tokio::fs::write(file_path, format!("{:#}", v)).await
 }
 
+fn get_submission_code(
+    title_slug: &str,
+    lang: &str,
+    model: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let soln_path = get_solution_fn(title_slug, lang, model);
+    let soln_text = fs::read_to_string(&soln_path)?;
+    let code_blocks = extract_specific_lang_codeblocks(&soln_text, lang);
+
+    let typed_code = code_blocks
+        .last()
+        .ok_or("No code blocks found")?
+        .to_string();
+
+    Ok(typed_code)
+}
+
 fn build_submission_json(
     title_slug: &str,
     lang: &str,
     model: &str,
 ) -> Result<Value, Box<dyn std::error::Error>> {
-    let soln_path = get_solution_fn(title_slug, lang, model);
-    let soln_text = fs::read_to_string(&soln_path)?;
-    let code_blocks = extract_specific_lang_codeblocks(&soln_text, lang);
-
-    let typed_code = code_blocks.last().ok_or("No code blocks found")?;
+    let typed_code = get_submission_code(title_slug, lang, model)?;
     let unescaped_typed_code = typed_code.replace("\\n", "\n");
 
     let question_id = SLUG_ID_MAP
@@ -590,19 +603,20 @@ fn format_full_prompt(content: &str, _code: &str) -> String {
     )
 }
 
+fn build_full_prompt(slug: &str, lang: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let (content, _code) = build_prompt(&slug, &lang)?;
+    Ok(format_full_prompt(&content, &_code))
+}
+
 fn build_oai_post_body(
     slug: &str,
     lang: &str,
     model: &str,
 ) -> Result<Value, Box<dyn std::error::Error>> {
-    let (content, _code) = build_prompt(&slug, &lang)?;
-
-    let full_prompt = format_full_prompt(&content, &_code);
-
     let data = json!({
         "model": model,
         "messages": [
-            {"role": "user", "content": full_prompt}
+            {"role": "user", "content": build_full_prompt(slug, lang)?}
         ]
     });
     Ok(data)
@@ -651,13 +665,9 @@ pub async fn solve(
     lang: &str,
     model: &str,
 ) -> Result<Value, Box<dyn std::error::Error>> {
-    let (content, _code) = build_prompt(&slug, &lang)?;
+    let v = fetch_openai_completion(&build_full_prompt(slug, lang)?, model).await?;
 
-    let full_prompt = format_full_prompt(&content, &_code);
-
-    let v = fetch_openai_completion(&full_prompt, model).await?;
-
-    save_solution(&slug, &lang, &v).await?;
+    // save_solution(&slug, &lang, &v).await?;
 
     Ok(v)
 }
@@ -896,6 +906,11 @@ fn build_write_solution_df() -> DataFrame {
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
     // tally_statuses();
+
+    // let (slug, lang, model) = parse_my_slug("print-binary-tree_rust_gpt-3.5-turbo");
+    // let p = build_full_prompt(&slug, &lang);
+    // println!("{:#?}", p.unwrap());
+    // solve(&slug, &lang, &model);
 
     let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
     println!("\nCommon questions: {:#?}", cqs.len());
