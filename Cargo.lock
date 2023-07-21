@@ -860,6 +860,7 @@ dependencies = [
  "indicatif",
  "lazy_static",
  "once_cell",
+ "polar",
  "polars",
  "regex",
  "reqwest",
@@ -1271,6 +1272,12 @@ checksum = "fc1691dd09e82f428ce8d6310bd6d5da2557c82ff17694d2a32cad7242aea89f"
 dependencies = [
  "array-init-cursor",
 ]
+
+[[package]]
+name = "polar"
+version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a9d2181ca828c481a75f9b689f0b71b532b9b198e25d112cb6f70eba4f1ddd8"
 
 [[package]]
 name = "polars"
