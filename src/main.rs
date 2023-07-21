@@ -13,6 +13,7 @@ use cookie::Cookie;
 use governor::clock::DefaultClock;
 use governor::{Quota, RateLimiter};
 use once_cell::sync::Lazy;
+use polars::prelude::*;
 use regex::Regex;
 use std::fs::create_dir_all;
 use std::fs::{write, File};
@@ -36,8 +37,8 @@ const COOKIES: &[&str] = &[
     r#"csrftoken=iR0qA1m253k02nHhf1sF59kEZYfkLVtFfNMHhJTd3akHwpQnwiYJEixhmNHrbeDe; messages="e3c5c17025394d2347b1038aa9b84747c33faa0b$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain5.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyNjciLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjI4YWE2OWNjY2ExMWNjZmRiZDg1Y2QwZTcxNzJmNDJmZWQ3ZDM3N2MiLCJpZCI6MTAxMzgyNjcsImVtYWlsIjoicmFkaWF0b3IucnVub2ZmQGdtYWlsLmNvbSIsInVzZXJuYW1lIjoiYW5hbmRpamFpbjUiLCJ1c2VyX3NsdWciOiJhbmFuZGlqYWluNSIsImF2YXRhciI6Imh0dHBzOi8vczMtdXMtd2VzdC0xLmFtYXpvbmF3cy5jb20vczMtbGMtdXBsb2FkL2Fzc2V0cy9kZWZhdWx0X2F2YXRhci5qcGciLCJyZWZyZXNoZWRfYXQiOjE2ODk3MjIyMjgsImlwIjoiNjYuMzAuMjIzLjkiLCJpZGVudGl0eSI6IjVmMGZmNWQ4Nzk5ZWQ0YzBlZDM1NWZhNDc0YTdiYmMyIiwic2Vzc2lvbl9pZCI6NDI4MDU1ODUsIl9zZXNzaW9uX2V4cGlyeSI6MTIwOTYwMH0.Ee6x4W0ydvTANrVhnZvrjkdqIpKJiq-OBz62-1MFV9Y; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1689723164062"#,
     ];
 
-const COOKIE: &str = COOKIES[2];
-const CSRF_TOKEN: &str = "TfAg1y36XrJjGQ1GdZJWDOSQ11ZnK2lpPW9zzzhqt4eqQBQIb2nPyBS82YFiy9bS";
+const COOKIE: &str = COOKIES[0];
+const CSRF_TOKEN: &str = "vqXWMXcAkYJu75Pid4qoJCDpQgceZ0zFqgN2AeaPELpaE89289U7USSjkdYDrXXo";
 const USER_AGENT_STR: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36";
 
 const BASE_PATH: &str = "/Users/anand/.rust/dev/leetcode_evals/data/data/";
@@ -332,20 +333,19 @@ fn get_code_path(title_slug: &str) -> PathBuf {
     dir_path.join(format!("{}_code.json", title_slug))
 }
 
-// Function to read prompt JSON file
+fn read_json<P: AsRef<Path>>(file_path: P) -> Result<Value, serde_json::Error> {
+    serde_json::from_str(&fs::read_to_string(file_path).unwrap())
+}
+
 fn get_prompt(title_slug: &str) -> Result<Value, serde_json::Error> {
     let prompt_path = get_prompt_path(title_slug);
-    let prompt_str = fs::read_to_string(prompt_path).unwrap();
-    serde_json::from_str(&prompt_str)
+    read_json(prompt_path)
 }
 
-// Function to read code JSON file
 fn get_code(title_slug: &str) -> Result<Value, serde_json::Error> {
     let code_path = get_code_path(title_slug);
-    let code_str = fs::read_to_string(code_path).unwrap();
-    serde_json::from_str(&code_str)
+    read_json(code_path)
 }
-
 fn get_content_from_json(prompt_json: &Value) -> Result<String, Box<dyn std::error::Error>> {
     if let Some(content) = prompt_json["data"]["question"]["content"].as_str() {
         Ok(content.to_string())
@@ -353,6 +353,7 @@ fn get_content_from_json(prompt_json: &Value) -> Result<String, Box<dyn std::err
         Err("Content not found in JSON".into())
     }
 }
+
 fn get_content_from_title_slug(title_slug: &str) -> Result<String, Box<dyn std::error::Error>> {
     let prompt_json = get_prompt(title_slug)?;
     get_content_from_json(&prompt_json)
@@ -446,12 +447,20 @@ fn get_solution_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
     get_solution_dir(title_slug).join(my_slug_json(title_slug, lang, model))
 }
 
+fn get_solution_json(title_slug: &str, lang: &str, model: &str) -> Result<Value, Box<dyn Error>> {
+    Ok(read_json(get_solution_fn(title_slug, lang, model))?)
+}
+
 fn get_submission_fns(slug: &str) -> Result<std::fs::ReadDir, std::io::Error> {
     std::fs::read_dir(get_submission_dir(slug))
 }
 
 fn get_submission_fn(title_slug: &str, lang: &str, model: &str) -> PathBuf {
     get_submission_dir(title_slug).join(my_slug_json(title_slug, lang, model))
+}
+
+fn get_submission_json(title_slug: &str, lang: &str, model: &str) -> Result<Value, Box<dyn Error>> {
+    Ok(read_json(get_submission_fn(title_slug, lang, model))?)
 }
 
 async fn save_solution(title_slug: &str, lang: &str, v: &Value) -> std::io::Result<()> {
@@ -785,24 +794,13 @@ fn csrftoken_from_cookie_str(cookie_str: &str) -> String {
     cookie_map.get("csrftoken").unwrap().to_string()
 }
 
-#[tokio::main]
-pub async fn main() -> Result<(), reqwest::Error> {
-    let start_slug = "two-sum_java_gpt-3.5-turbo";
-
-    let (slug, lang, _model) = parse_my_slug(start_slug);
+fn tally_statuses() -> () {
     let model = OPENAI_GPT_MODEL;
     let models = vec![model];
     let qs = get_qs();
 
     let myslug_tups: Vec<(String, String, String)> =
         build_all_mytups(qs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
-
-    let start_index = myslug_tups
-        .iter()
-        .position(|ms| ms.0 == slug && ms.1 == lang && ms.2 == _model)
-        .unwrap_or(0);
-
-    println!("Start index: {:#?}", start_index);
 
     let lang_tally = tally_langs(qs.clone());
     let sol_tally = tally_solutions(qs.clone());
@@ -826,96 +824,145 @@ pub async fn main() -> Result<(), reqwest::Error> {
         diff_map.insert(lang.clone(), diff);
     }
     display_tally(&diff_map);
+    ()
+}
 
-    let sub = submit(&slug, &lang, &model).await.unwrap();
-    println!("{:#?}", sub);
-    if let Some(id) = sub["submission_id"].as_i64() {
-        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-        let check = match get_submission_check(&id.to_string()).await {
-            Ok(check) => check,
-            Err(e) => {
-                panic!("Error getting submission check id: {}", e);
-                // continue;
-            }
-        };
-        println!("{:#?}", check);
-        match save_submission(&slug, &lang, model, &check).await {
-            Ok(_) => {
-                let local = Local::now();
-                println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
-            }
-            Err(e) => {
-                println!("Error saving submission: {}", e);
-                // continue;
-            }
-        }
+#[tokio::main]
+pub async fn main() -> Result<(), reqwest::Error> {
+    //     let start_index = myslug_tups
+    //     .iter()
+    //     .position(|ms| ms.0 == slug && ms.1 == lang && ms.2 == _model)
+    //     .unwrap_or(0);
+
+    // println!("Start index: {:#?}", start_index);
+    // let start_slug = "two-sum_java_gpt-3.5-turbo";
+    // let (slug, lang, _model) = parse_my_slug(start_slug);
+    let models = vec![OPENAI_GPT_MODEL];
+
+    let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
+    println!("\nCommon questions: {:#?}", cqs.len());
+    let model = models[0];
+
+    let myslug_tups_cqs =
+        build_all_mytups(cqs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
+    println!("myslug_tups_cqs: {:#?}", myslug_tups_cqs.len());
+    let mut slug_col = Vec::new();
+    let mut lang_col = Vec::new();
+    let mut model_col = Vec::new();
+    let mut completion_tokens_col = Vec::new();
+    let mut prompt_tokens_col = Vec::new();
+    let mut total_tokens_col = Vec::new();
+    let mut num_codeblocks_col = Vec::new();
+
+    for (slug, lang, model) in myslug_tups_cqs.iter().progress() {
+        let filename = get_solution_fn(&slug, lang, model);
+        let soln_json = read_json(filename).unwrap();
+        slug_col.push(slug)
+        lang_col.push(lang)
     }
-    for (slug, lang, model) in myslug_tups.iter().progress() {
-        if !get_solution_fn(&slug, &lang, &model).exists() {
-            // continue;
-            solve(&slug, &lang, &model).await.unwrap();
-            let local = Local::now();
-            println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
-        }
+    // for q in cqs.iter().progress() {
+    //     let slug = get_title_slug(&q);
+    //     for lang in ALL_REAL_LANGS {
+    //         // let l = lang.to_string();
 
-        // if get_submission_fn(slug, lang, model).exists() {
-        //     println!("Submission already exists for {:?}!", get_submission_fn(slug, lang, model));
-        //     continue;
-        // }
+    //     }
+    // }
 
-        // match build_submission_json(slug, lang, model) {
-        //     Ok(post_body) => match submit_solution(slug, lang, model, post_body).await {
-        //         Ok(v) => {
-        //             if let Some(id) = v["submission_id"].as_i64() {
-        //                 tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-        //                 let check = match get_submission_check(&id.to_string()).await {
-        //                     Ok(check) => check,
-        //                     Err(e) => {
-        //                         println!("Error getting submission check id: {}", e);
-        //                         continue;
-        //                     }
-        //                 };
-        //                 println!("{:#?}", check);
-        //                 match save_submission(slug, lang, model, &check).await {
-        //                     Ok(_) => {
-        //                         let local = Local::now();
-        //                         println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
-        //                     }
-        //                     Err(e) => {
-        //                         println!("Error saving submission: {}", e);
-        //                         continue;
-        //                     }
-        //                 }
-        //             } else {
-        //                 if let Some(error) = v.get("error").and_then(|error| error.as_str()) {
-        //                     if error == "User is not authenticated" {
-        //                         panic!("User is not authenticated");
-        //                     } else if error == "Submission disabled for this question." {
-        //                         continue;
-        //                     }
-        //                 } else {
-        //                     panic!("Error in response: {:?}", v);
-        //                     continue;
-        //                 }
-        //             }
-        //         }
-        //         Err(e) => {
-        //             panic!(
-        //                 "Error submitting solution (most likely rate limited by leetcode): {}",
-        //                 e
-        //             );
-        //             continue;
-        //         }
-        //     },
-        //     Err(e) => {
-        //         println!(
-        //             "Error building {} submission JSON: {}",
-        //             my_slug(slug, lang, model),
-        //             e
-        //         );
-        //     }
-        // }
-    }
+    // let sub = submit(&slug, &lang, &model).await.unwrap();
+    // println!("{:#?}", sub);
+    // if let Some(id) = sub["submission_id"].as_i64() {
+    //     tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+    //     let check = match get_submission_check(&id.to_string()).await {
+    //         Ok(check) => check,
+    //         Err(e) => {
+    //             panic!("Error getting submission check id: {}", e);
+    //             // continue;
+    //         }
+    //     };
+    //     println!("{:#?}", check);
+    //     match save_submission(&slug, &lang, model, &check).await {
+    //         Ok(_) => {
+    //             let local = Local::now();
+    //             println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+    //         }
+    //         Err(e) => {
+    //             println!("Error saving submission: {}", e);
+    //             // continue;
+    //         }
+    //     }
+    // }
+
+    // for (slug, lang, model) in myslug_tups.iter().progress() {
+    //     if !get_solution_fn(&slug, &lang, &model).exists() {
+    //         match solve(&slug, &lang, &model).await {
+    //             Ok(_) => (),
+    //             Err(e) => {
+    //                 eprintln!("Error occurred in solve: {}", e);
+    //                 continue;
+    //             }
+    //         };
+    //         let local = Local::now();
+    //         println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+    //     }
+
+    // if get_submission_fn(slug, lang, model).exists() {
+    //     println!("Submission already exists for {:?}!", get_submission_fn(slug, lang, model));
+    //     continue;
+    // }
+
+    // match build_submission_json(slug, lang, model) {
+    //     Ok(post_body) => match submit_solution(slug, lang, model, post_body).await {
+    //         Ok(v) => {
+    //             if let Some(id) = v["submission_id"].as_i64() {
+    //                 tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+    //                 let check = match get_submission_check(&id.to_string()).await {
+    //                     Ok(check) => check,
+    //                     Err(e) => {
+    //                         println!("Error getting submission check id: {}", e);
+    //                         continue;
+    //                     }
+    //                 };
+    //                 println!("{:#?}", check);
+    //                 match save_submission(slug, lang, model, &check).await {
+    //                     Ok(_) => {
+    //                         let local = Local::now();
+    //                         println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+    //                     }
+    //                     Err(e) => {
+    //                         println!("Error saving submission: {}", e);
+    //                         continue;
+    //                     }
+    //                 }
+    //             } else {
+    //                 if let Some(error) = v.get("error").and_then(|error| error.as_str()) {
+    //                     if error == "User is not authenticated" {
+    //                         panic!("User is not authenticated");
+    //                     } else if error == "Submission disabled for this question." {
+    //                         continue;
+    //                     }
+    //                 } else {
+    //                     panic!("Error in response: {:?}", v);
+    //                     continue;
+    //                 }
+    //             }
+    //         }
+    //         Err(e) => {
+    //             panic!(
+    //                 "Error submitting solution (most likely rate limited by leetcode): {}",
+    //                 e
+    //             );
+    //             continue;
+    //         }
+    //     },
+    //     Err(e) => {
+    //         println!(
+    //             "Error building {} submission JSON: {}",
+    //             my_slug(slug, lang, model),
+    //             e
+    //         );
+    //     }
+    // }
+    // }
 
     Ok(())
 }
@@ -934,5 +981,21 @@ print('Hello, World!')
         let lang = "python3";
         let code_blocks = extract_specific_lang_codeblocks(text, lang);
         assert_eq!(code_blocks[0], "print('Hello, World!')\n");
+    }
+
+    #[test]
+    fn test_solution_count() {
+        let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
+        println!("\nCommon questions: {:#?}", cqs.len());
+        let models = vec![OPENAI_GPT_MODEL];
+
+        let myslug_tups_cqs =
+            build_all_mytups(cqs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
+        assert_eq!(myslug_tups_cqs.len(), ALL_REAL_LANGS.len() * cqs.len());
+        let mut all_soln_fns = vec![];
+        for (slug, lang, model) in myslug_tups_cqs {
+            all_soln_fns.push(get_solution_fn(&slug, &lang, &model));
+        }
+        assert!(all_soln_fns.iter().all(|p| p.exists()));
     }
 }
