@@ -827,14 +827,8 @@ fn tally_statuses() -> () {
 
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
-    //     let start_index = myslug_tups
-    //     .iter()
-    //     .position(|ms| ms.0 == slug && ms.1 == lang && ms.2 == _model)
-    //     .unwrap_or(0);
 
-    // println!("Start index: {:#?}", start_index);
-    // let start_slug = "two-sum_java_gpt-3.5-turbo";
-    // let (slug, lang, _model) = parse_my_slug(start_slug);
+    tally_statuses();
     let models = vec![OPENAI_GPT_MODEL];
     let qs = get_qs();
     let myslug_tups: Vec<(String, String, String)> =
@@ -891,7 +885,6 @@ pub async fn main() -> Result<(), reqwest::Error> {
     //     .finish(&mut df)
     //     .unwrap();
 
-
     // let sub = submit(&slug, &lang, &model).await.unwrap();
     // println!("{:#?}", sub);
     // if let Some(id) = sub["submission_id"].as_i64() {
@@ -915,9 +908,10 @@ pub async fn main() -> Result<(), reqwest::Error> {
     //         }
     //     }
     // }
-
+    let mut i = 0usize;
     for (slug, lang, model) in myslug_tups.iter().progress() {
         if !get_solution_fn(&slug, &lang, &model).exists() {
+            i += 1;
             match solve(&slug, &lang, &model).await {
                 Ok(_) => (),
                 Err(e) => {
@@ -926,7 +920,7 @@ pub async fn main() -> Result<(), reqwest::Error> {
                 }
             };
             let local = Local::now();
-            println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+            println!("{}: {}", i, local.format("%Y-%m-%d %H:%M:%S").to_string());
         }
     }
 
@@ -1011,7 +1005,6 @@ print('Hello, World!')
     #[test]
     fn test_solution_count() {
         let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
-        println!("\nCommon questions: {:#?}", cqs.len());
         let models = vec![OPENAI_GPT_MODEL];
 
         let myslug_tups_cqs =
