@@ -1,0 +1,79 @@
+this is cqs indices
+
+██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 174/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+███████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 373/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+███████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 444/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 472/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 473/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 474/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 476/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 477/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 478/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 479/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+███████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 500/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 592/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 594/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 595/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 660/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 728/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 730/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+█████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 731/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+██████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 748/1862{"error": "Submission disabled for this question."}
+Object {
+    "error": String("Submission disabled for this question."),
+}
+████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 771/1862

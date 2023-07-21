@@ -513,8 +513,15 @@ fn build_submission_json(
         .get(title_slug)
         .ok_or("Title slug not found in global map")?;
 
+    let question_id_int = question_id
+        .parse::<i32>()
+        .map_err(|_| "Failed to parse question id")?
+        + 1;
+
+    let question_id_minus_one = question_id_int.to_string();
+
     let json_value = json!({
-        "question_id": question_id,
+        "question_id": question_id_minus_one,
         "lang": lang,
         "typed_code": unescaped_typed_code
     });
@@ -674,6 +681,7 @@ pub async fn solve(
 
 async fn submit(slug: &str, lang: &str, model: &str) -> Result<Value, Box<dyn std::error::Error>> {
     let post_body = build_submission_json(slug, lang, model)?;
+    println!("{:#?}", post_body);
     let json_response = submit_solution(slug, lang, model, post_body).await?;
     Ok(json_response)
 }
@@ -903,52 +911,102 @@ fn build_write_solution_df() -> DataFrame {
     df
 }
 
+async fn submit_and_check(
+    slug: &str,
+    lang: &str,
+    model: &str,
+) -> Result<Value, Box<dyn std::error::Error>> {
+    if let Ok(sub) = submit(&slug, &lang, &model).await {
+        tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+        println!("{:#?}", sub);
+
+        if let Some(id) = sub["submission_id"].as_i64() {
+            let check = match get_submission_check(&id.to_string()).await {
+                Ok(check) => check,
+                Err(e) => {
+                    return Err(format!("Error getting submission check id: {}", e).into());
+                }
+            };
+            println!("{:#?}", check);
+
+            match save_submission(&slug, &lang, model, &check).await {
+                Ok(_) => {
+                    let local = Local::now();
+                    println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+                    println!("{:#?}", get_submission_fn(slug, lang, model));
+                }
+                Err(e) => {
+                    return Err(format!("Error saving submission: {}", e).into());
+                }
+            }
+            return Ok(check);
+        }
+    }
+    Err("No submission was made".into())
+}
+
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
     // tally_statuses();
+    // this is the first submission where it seems like the question_id started getting off
+    let s = "closest-leaf-in-a-binary-tree";
+    println!("{}", SLUG_ID_MAP.get(s).unwrap()); // 742
+    println!("{}", SLUG_ID_MAP.get("network-delay-time").unwrap()); // 743
+                                                                    // the solution submitted to this slug had a function "network_delay_time"
+                                                                    // "network-delay-time" has frontendQuestionId 743
 
-    // let (slug, lang, model) = parse_my_slug("print-binary-tree_rust_gpt-3.5-turbo");
+    // let (slug, lang, model) = parse_my_slug("closest-leaf-in-a-binary-tree_rust_gpt-3.5-turbo");
+
+    let (slug, lang, model) = parse_my_slug("network-delay-time_rust_gpt-3.5-turbo");
+    let c = get_submission_code(&slug, &lang, &model).unwrap();
+    let c2 = c.replace("\\n", "\n");
+    println!("{}", c2);
     // let p = build_full_prompt(&slug, &lang);
-    // println!("{:#?}", p.unwrap());
     // solve(&slug, &lang, &model);
+    if let Ok(x) = submit_and_check(&slug, &lang, &model).await {
+        println!("{:#?}", x);
+    }
 
     let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
-    println!("\nCommon questions: {:#?}", cqs.len());
+
+    // println!("\nCommon questions: {:#?}", cqs.len());
     let model = OPENAI_GPT_MODEL;
 
     // let myslug_tups_cqs =
     //     build_all_mytups(cqs.clone(), ALL_REAL_LANGS.to_vec().clone(), vec![model]);
+
     let myslug_tups_cqs = build_all_mytups(cqs.clone(), vec!["rust"], vec![model]);
-    for (slug, lang, model) in myslug_tups_cqs.iter().progress() {
-        let sub_fn = get_submission_fn(slug, lang, model);
-        if !sub_fn.exists() {
-            if let Ok(sub) = submit(&slug, &lang, &model).await {
-                tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-                println!("{:#?}", sub);
-                if let Some(id) = sub["submission_id"].as_i64() {
-                    let check = match get_submission_check(&id.to_string()).await {
-                        Ok(check) => check,
-                        Err(e) => {
-                            panic!("Error getting submission check id: {}", e);
-                            // continue;
-                        }
-                    };
-                    println!("{:#?}", check);
-                    match save_submission(&slug, &lang, model, &check).await {
-                        Ok(_) => {
-                            let local = Local::now();
-                            println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
-                            println!("{:#?}", sub_fn);
-                        }
-                        Err(e) => {
-                            println!("Error saving submission: {}", e);
-                            // continue;
-                        }
-                    }
-                }
-            }
-        }
-    }
+
+    // for (slug, lang, model) in myslug_tups_cqs.iter().progress() {
+    //     let sub_fn = get_submission_fn(slug, lang, model);
+    //     if !sub_fn.exists() {
+    //         if let Ok(sub) = submit(&slug, &lang, &model).await {
+    //             tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+    //             println!("{:#?}", sub);
+    //             if let Some(id) = sub["submission_id"].as_i64() {
+    //                 let check = match get_submission_check(&id.to_string()).await {
+    //                     Ok(check) => check,
+    //                     Err(e) => {
+    //                         panic!("Error getting submission check id: {}", e);
+    //                         // continue;
+    //                     }
+    //                 };
+    //                 println!("{:#?}", check);
+    //                 match save_submission(&slug, &lang, model, &check).await {
+    //                     Ok(_) => {
+    //                         let local = Local::now();
+    //                         println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+    //                         println!("{:#?}", sub_fn);
+    //                     }
+    //                     Err(e) => {
+    //                         println!("Error saving submission: {}", e);
+    //                         // continue;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     // let mut i = 0usize;
     // for (slug, lang, model) in myslug_tups.iter().progress() {
