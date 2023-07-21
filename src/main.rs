@@ -77,6 +77,7 @@ lazy_static! {
         vec![
             ("golang", "go"),
             ("python3", "python"),
+            ("python", "python"),
             ("javascript", "javascript"),
             ("typescript", "typescript"),
             ("java", "java"),
@@ -825,10 +826,7 @@ fn tally_statuses() -> () {
     ()
 }
 
-#[tokio::main]
-pub async fn main() -> Result<(), reqwest::Error> {
-
-    tally_statuses();
+fn build_write_solution_df() -> DataFrame {
     let models = vec![OPENAI_GPT_MODEL];
     let qs = get_qs();
     let myslug_tups: Vec<(String, String, String)> =
@@ -838,91 +836,118 @@ pub async fn main() -> Result<(), reqwest::Error> {
     println!("\nCommon questions: {:#?}", cqs.len());
     let model = models[0];
 
+    let myslug_tups_cqs =
+        build_all_mytups(cqs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
+    println!("myslug_tups_cqs: {:#?}", myslug_tups_cqs.len());
+    let mut slug_col = Vec::new();
+    let mut lang_col = Vec::new();
+    let mut model_col = Vec::new();
+    let mut completion_tokens_col = Vec::new();
+    let mut prompt_tokens_col = Vec::new();
+    let mut total_tokens_col = Vec::new();
+    let mut num_lang_prefixed_codeblocks_col = Vec::new();
+    let mut num_codeblocks_col = Vec::new();
+
+    for (slug, lang, model) in myslug_tups_cqs.iter().progress() {
+        let filename = get_solution_fn(&slug, lang, model);
+        // println!("{:#?}", filename);
+        let soln_json = read_json(filename).unwrap();
+        let completion_tokens = soln_json["usage"]["completion_tokens"].as_u64().unwrap();
+        let prompt_tokens = soln_json["usage"]["prompt_tokens"].as_u64().unwrap();
+        let total_tokens = soln_json["usage"]["total_tokens"].as_u64().unwrap();
+
+        let c = extract_content(&soln_json).unwrap();
+        let lp_codeblocks = extract_specific_lang_codeblocks(&c, &lang);
+        let codeblocks = extract_codeblocks(&c);
+        slug_col.push(slug.to_string());
+        lang_col.push(lang.to_string());
+        model_col.push(model.to_string());
+        completion_tokens_col.push(completion_tokens);
+        prompt_tokens_col.push(prompt_tokens);
+        total_tokens_col.push(total_tokens);
+        num_codeblocks_col.push(codeblocks.len() as u64);
+        num_lang_prefixed_codeblocks_col.push(lp_codeblocks.len() as u64);
+    }
+    let mut df = DataFrame::new(vec![
+        Series::new("slug", slug_col),
+        Series::new("lang", lang_col),
+        Series::new("model", model_col),
+        Series::new("completion_tokens", completion_tokens_col),
+        Series::new("prompt_tokens", prompt_tokens_col),
+        Series::new("total_tokens", total_tokens_col),
+        Series::new("num_codeblocks", num_codeblocks_col),
+        Series::new(
+            "num_lang_prefixed_codeblocks",
+            num_lang_prefixed_codeblocks_col,
+        ),
+    ])
+    .unwrap();
+    let pfn = "solutions2.csv";
+    let mut file = File::create(pfn).expect("could not create file");
+    CsvWriter::new(&mut file)
+        .has_header(true)
+        .with_delimiter(b',')
+        .finish(&mut df)
+        .unwrap();
+
+    df
+}
+
+#[tokio::main]
+pub async fn main() -> Result<(), reqwest::Error> {
+    // tally_statuses();
+
+    let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
+    println!("\nCommon questions: {:#?}", cqs.len());
+    let model = OPENAI_GPT_MODEL;
+
     // let myslug_tups_cqs =
-    //     build_all_mytups(cqs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
-    // println!("myslug_tups_cqs: {:#?}", myslug_tups_cqs.len());
-    // let mut slug_col = Vec::new();
-    // let mut lang_col = Vec::new();
-    // let mut model_col = Vec::new();
-    // let mut completion_tokens_col = Vec::new();
-    // let mut prompt_tokens_col = Vec::new();
-    // let mut total_tokens_col = Vec::new();
-    // let mut num_codeblocks_col = Vec::new();
-
-    // for (slug, lang, model) in myslug_tups_cqs.iter().progress() {
-    //     let filename = get_solution_fn(&slug, lang, model);
-    //     println!("{:#?}", filename);
-    //     let soln_json = read_json(filename).unwrap();
-    //     let completion_tokens = soln_json["usage"]["completion_tokens"].as_u64().unwrap();
-    //     let prompt_tokens = soln_json["usage"]["prompt_tokens"].as_u64().unwrap();
-    //     let total_tokens = soln_json["usage"]["total_tokens"].as_u64().unwrap();
-
-    //     let c = extract_content(&soln_json).unwrap();
-    //     let codeblocks = extract_specific_lang_codeblocks(&c, &lang);
-    //     slug_col.push(slug.to_string());
-    //     lang_col.push(lang.to_string());
-    //     model_col.push(model.to_string());
-    //     completion_tokens_col.push(completion_tokens);
-    //     prompt_tokens_col.push(prompt_tokens);
-    //     total_tokens_col.push(total_tokens);
-    //     num_codeblocks_col.push(codeblocks.len() as u64);
-    // }
-    // let mut df = DataFrame::new(vec![
-    //     Series::new("slug", slug_col),
-    //     Series::new("lang", lang_col),
-    //     Series::new("model", model_col),
-    //     Series::new("completion_tokens", completion_tokens_col),
-    //     Series::new("prompt_tokens", prompt_tokens_col),
-    //     Series::new("total_tokens", total_tokens_col),
-    //     Series::new("num_codeblocks", num_codeblocks_col),
-    // ])
-    // .unwrap();
-    // let pfn = "solutions.csv";
-    // let mut file = File::create(pfn).expect("could not create file");
-    // CsvWriter::new(&mut file)
-    //     .has_header(true)
-    //     .with_delimiter(b',')
-    //     .finish(&mut df)
-    //     .unwrap();
-
-    // let sub = submit(&slug, &lang, &model).await.unwrap();
-    // println!("{:#?}", sub);
-    // if let Some(id) = sub["submission_id"].as_i64() {
-    //     tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-    //     let check = match get_submission_check(&id.to_string()).await {
-    //         Ok(check) => check,
-    //         Err(e) => {
-    //             panic!("Error getting submission check id: {}", e);
-    //             // continue;
-    //         }
-    //     };
-    //     println!("{:#?}", check);
-    //     match save_submission(&slug, &lang, model, &check).await {
-    //         Ok(_) => {
-    //             let local = Local::now();
-    //             println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
-    //         }
-    //         Err(e) => {
-    //             println!("Error saving submission: {}", e);
-    //             // continue;
-    //         }
-    //     }
-    // }
-    let mut i = 0usize;
-    for (slug, lang, model) in myslug_tups.iter().progress() {
-        if !get_solution_fn(&slug, &lang, &model).exists() {
-            i += 1;
-            match solve(&slug, &lang, &model).await {
-                Ok(_) => (),
-                Err(e) => {
-                    eprintln!("Error occurred in solve: {}", e);
-                    continue;
+    //     build_all_mytups(cqs.clone(), ALL_REAL_LANGS.to_vec().clone(), vec![model]);
+    let myslug_tups_cqs = build_all_mytups(cqs.clone(), vec!["rust"], vec![model]);
+    for (slug, lang, model) in myslug_tups_cqs.iter().progress() {
+        if !get_submission_fn(slug, lang, model).exists() {
+            if let Ok(sub) = submit(&slug, &lang, &model).await {
+                tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+                println!("{:#?}", sub);
+                if let Some(id) = sub["submission_id"].as_i64() {
+                    let check = match get_submission_check(&id.to_string()).await {
+                        Ok(check) => check,
+                        Err(e) => {
+                            panic!("Error getting submission check id: {}", e);
+                            // continue;
+                        }
+                    };
+                    println!("{:#?}", check);
+                    match save_submission(&slug, &lang, model, &check).await {
+                        Ok(_) => {
+                            let local = Local::now();
+                            println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
+                        }
+                        Err(e) => {
+                            println!("Error saving submission: {}", e);
+                            // continue;
+                        }
+                    }
                 }
-            };
-            let local = Local::now();
-            println!("{}: {}", i, local.format("%Y-%m-%d %H:%M:%S").to_string());
+            }
         }
     }
+
+    // let mut i = 0usize;
+    // for (slug, lang, model) in myslug_tups.iter().progress() {
+    //     if !get_solution_fn(&slug, &lang, &model).exists() {
+    //         i += 1;
+    //         match solve(&slug, &lang, &model).await {
+    //             Ok(_) => (),
+    //             Err(e) => {
+    //                 eprintln!("Error occurred in solve: {}", e);
+    //                 continue;
+    //             }
+    //         };
+    //         let local = Local::now();
+    //         println!("{}: {}", i, local.format("%Y-%m-%d %H:%M:%S").to_string());
+    //     }
+    // }
 
     // if get_submission_fn(slug, lang, model).exists() {
     //     println!("Submission already exists for {:?}!", get_submission_fn(slug, lang, model));
