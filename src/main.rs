@@ -67,9 +67,7 @@ const ALL_REAL_LANGS: &[&str] = &[
 ];
 
 static SLUG_ID_MAP: Lazy<HashMap<String, String>> = Lazy::new(|| {
-    let data = fs::read_to_string("problemset.json").expect("Failed to read problemset.json");
-    let v: Value = serde_json::from_str(&data).expect("Failed to parse JSON data");
-    build_slug_to_id_map(&v)
+    build_slug_id_map()
 });
 
 lazy_static! {
@@ -164,19 +162,21 @@ async fn get_problemset() -> Result<(), reqwest::Error> {
     Ok(())
 }
 
-pub fn build_slug_to_id_map(v: &Value) -> HashMap<String, String> {
+fn build_slug_id_map() -> HashMap<String, String> {
+    let qs = get_qs();
     let mut slug_to_id = HashMap::new();
 
-    if let Value::Array(questions) = &v["data"]["problemsetQuestionList"]["questions"] {
-        for question in questions {
-            if let (Value::String(slug), Value::String(id)) =
-                (&question["titleSlug"], &question["frontendQuestionId"])
-            {
-                slug_to_id.insert(slug.clone(), id.clone());
-            }
+    for q in qs {
+        let slug = get_title_slug(&q);
+        if let Ok(code) = get_code(&slug) {
+            let frontend_qid = code["data"]["question"]["questionFrontendId"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            slug_to_id.insert(slug.clone(), frontend_qid.clone());
+
         }
     }
-
     slug_to_id
 }
 
@@ -513,15 +513,8 @@ fn build_submission_json(
         .get(title_slug)
         .ok_or("Title slug not found in global map")?;
 
-    let question_id_int = question_id
-        .parse::<i32>()
-        .map_err(|_| "Failed to parse question id")?
-        + 1;
-
-    let question_id_minus_one = question_id_int.to_string();
-
     let json_value = json!({
-        "question_id": question_id_minus_one,
+        "question_id": question_id,
         "lang": lang,
         "typed_code": unescaped_typed_code
     });
