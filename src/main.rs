@@ -1017,11 +1017,11 @@ print('Hello, World!')
         let myslug_tups_cqs =
             build_all_mytups(cqs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
         assert_eq!(myslug_tups_cqs.len(), ALL_REAL_LANGS.len() * cqs.len());
-        let mut all_soln_fns = vec![];
         for (slug, lang, model) in myslug_tups_cqs {
-            all_soln_fns.push(get_solution_fn(&slug, &lang, &model));
+            let p = get_solution_fn(&slug, &lang, &model);
+            assert!(p.exists());
+            let j = read_json(p).unwrap();
+            assert!(j.get("error").is_none());
         }
-        assert!(all_soln_fns.iter().all(|p| p.exists()));
-        // TODO: test rate_limit_exceeded, cf_bad_gateway aren't in any of the solutions
     }
 }
