@@ -169,7 +169,7 @@ fn build_slug_id_map() -> HashMap<String, String> {
     for q in qs {
         let slug = get_title_slug(&q);
         if let Ok(code) = get_code(&slug) {
-            let frontend_qid = code["data"]["question"]["questionFrontendId"]
+            let frontend_qid = code["data"]["question"]["questionId"]
                 .as_str()
                 .unwrap()
                 .to_string();
@@ -942,8 +942,8 @@ async fn submit_and_check(
 pub async fn main() -> Result<(), reqwest::Error> {
     // tally_statuses();
     // this is the first submission where it seems like the question_id started getting off
-    let s = "closest-leaf-in-a-binary-tree";
-    println!("{}", SLUG_ID_MAP.get(s).unwrap()); // 742
+    // let s = "closest-leaf-in-a-binary-tree";
+    // println!("{}", SLUG_ID_MAP.get(s).unwrap()); // 742
     println!("{}", SLUG_ID_MAP.get("network-delay-time").unwrap()); // 743
                                                                     // the solution submitted to this slug had a function "network_delay_time"
                                                                     // "network-delay-time" has frontendQuestionId 743
