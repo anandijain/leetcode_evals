@@ -30,7 +30,7 @@ const OPENAI_GPT_MODEL: &str = "gpt-3.5-turbo";
 // const OPENAI_GPT_MODEL: &str = "gpt-4";
 
 const COOKIES: &[&str] = &[
-    r#"csrftoken=oZ0DfxMNQ93CfcXVTMSnZKdSySbjDnQrUCMofppdwNwfNP9I4JWJvlYgfeWpp5Hy; messages="12877f56d355501b9812ecfb2d621ba942950006$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMzYwNTc2OCIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImRqYW5nby5jb250cmliLmF1dGguYmFja2VuZHMuTW9kZWxCYWNrZW5kIiwiX2F1dGhfdXNlcl9oYXNoIjoiMjEwNWIxYWQ3ZjNhOWNhMmZiMzc1N2FhNzEzZjQ4MmFiNTMxOWVmNyIsImlkIjozNjA1NzY4LCJlbWFpbCI6ImRhaG1laC5hbG1vc0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kamFpbiIsInVzZXJfc2x1ZyI6ImFuYW5kamFpbiIsImF2YXRhciI6Imh0dHBzOi8vYXNzZXRzLmxlZXRjb2RlLmNvbS91c2Vycy9hdmF0YXJzL2F2YXRhcl8xNjc4OTA5MTg5LnBuZyIsInJlZnJlc2hlZF9hdCI6MTY4OTk3MjMyNiwiaXAiOiI2Ni4zMC4yMjMuOSIsImlkZW50aXR5IjoiNWYwZmY1ZDg3OTllZDRjMGVkMzU1ZmE0NzRhN2JiYzIiLCJzZXNzaW9uX2lkIjo0Mjk2OTc0NCwiX3Nlc3Npb25fZXhwaXJ5IjoxMjA5NjAwfQ.N0vGsqWdCHnSb--207uqZG6sSkjjW0euipAB8qnvt3A; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1689973243613"#,
+    r#"csrftoken=RU9n6XSPpv7fEUIupPOyeA5wSp5Vo25dtDwD7Esa7mStCOpJGsguyaAxpLt5L8Kn; messages="2f9906470396b8131a09222361831ed0cdcc15e3$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to thisisagag@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain2.\"]\054[\"__json_message\"\0540\05425\054\"You have confirmed thisisagag@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to anandash2@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain3.\"]\054[\"__json_message\"\0540\05425\054\"You have confirmed anandash2@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to oneofmanymagnumopai@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain4.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to radiator.runoff@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain5.\"]\054[\"__json_message\"\0540\05425\054\"You have confirmed radiator.runoff@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain2.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMzYwNTc2OCIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImRqYW5nby5jb250cmliLmF1dGguYmFja2VuZHMuTW9kZWxCYWNrZW5kIiwiX2F1dGhfdXNlcl9oYXNoIjoiMjEwNWIxYWQ3ZjNhOWNhMmZiMzc1N2FhNzEzZjQ4MmFiNTMxOWVmNyIsImlkIjozNjA1NzY4LCJlbWFpbCI6ImRhaG1laC5hbG1vc0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kamFpbiIsInVzZXJfc2x1ZyI6ImFuYW5kamFpbiIsImF2YXRhciI6Imh0dHBzOi8vYXNzZXRzLmxlZXRjb2RlLmNvbS91c2Vycy9hdmF0YXJzL2F2YXRhcl8xNjc4OTA5MTg5LnBuZyIsInJlZnJlc2hlZF9hdCI6MTY5MDA0MTI4MiwiaXAiOiI2Ni4zMC4yMjMuOSIsImlkZW50aXR5IjoiNWYwZmY1ZDg3OTllZDRjMGVkMzU1ZmE0NzRhN2JiYzIiLCJzZXNzaW9uX2lkIjo0MzAwNzczOSwiX3Nlc3Npb25fZXhwaXJ5IjoxMjA5NjAwfQ.ByfIvtXdC7L7lopOOVvL9b50CpmefGpJz_M17KxxTIU; _dd_s=rum=0&expire=1690042202059"#,
     r#"csrftoken=Jjxy8fQjnLP0B3ETRJ5ZU8ObHjKB6NQUMGMziPuNL78ylp5CPiM9FYehS6BXhr3w; messages="40f1b87013c4898ef73e5b0025fdc1d3bd31d22a$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain2.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgwOTMiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjY1OTc3NGI0MjBlNmNhNTRkZjMyMzEzZDhlN2U5NjI1YTAyN2I2OTkiLCJpZCI6MTAxMzgwOTMsImVtYWlsIjoidGhpc2lzYWdhZ0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kaWphaW4yIiwidXNlcl9zbHVnIjoiYW5hbmRpamFpbjIiLCJhdmF0YXIiOiJodHRwczovL3MzLXVzLXdlc3QtMS5hbWF6b25hd3MuY29tL3MzLWxjLXVwbG9hZC9hc3NldHMvZGVmYXVsdF9hdmF0YXIuanBnIiwicmVmcmVzaGVkX2F0IjoxNjg5NzI0MzcwLCJpcCI6IjY2LjMwLjIyMy45IiwiaWRlbnRpdHkiOiI1ZjBmZjVkODc5OWVkNGMwZWQzNTVmYTQ3NGE3YmJjMiIsInNlc3Npb25faWQiOjQyODA2Mjk4LCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.eoq38F3K7YgXzom6T8tHRT_lUaN4hT3-PA9R5PYxdNI; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=2&id=7ca1b08c-270c-4a6d-849c-cfdd45b0425c&created=1689724363696&expire=1689725290252"#,
     r#"csrftoken=TfAg1y36XrJjGQ1GdZJWDOSQ11ZnK2lpPW9zzzhqt4eqQBQIb2nPyBS82YFiy9bS; messages="933207930920dd9ca86f3ebb068c06d4926043f4$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain3.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyMzQiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjQ5MWU2ODk5Y2Y1ZDM4NjRkNTc0OTVlN2FkMzI4ZDZiYWVmMDQwNTMiLCJpZCI6MTAxMzgyMzQsImVtYWlsIjoiYW5hbmRhc2gyQGdtYWlsLmNvbSIsInVzZXJuYW1lIjoiYW5hbmRpamFpbjMiLCJ1c2VyX3NsdWciOiJhbmFuZGlqYWluMyIsImF2YXRhciI6Imh0dHBzOi8vczMtdXMtd2VzdC0xLmFtYXpvbmF3cy5jb20vczMtbGMtdXBsb2FkL2Fzc2V0cy9kZWZhdWx0X2F2YXRhci5qcGciLCJyZWZyZXNoZWRfYXQiOjE2ODk3MjQ1NTcsImlwIjoiNjYuMzAuMjIzLjkiLCJpZGVudGl0eSI6IjVmMGZmNWQ4Nzk5ZWQ0YzBlZDM1NWZhNDc0YTdiYmMyIiwic2Vzc2lvbl9pZCI6NDI4MDYzNjUsIl9zZXNzaW9uX2V4cGlyeSI6MTIwOTYwMH0.Or_EnxwAWMMTlfg3hYEi-cfsDwYmh2FvrRTnfiQG_eI; _dd_s=rum=0&expire=1689725474935"#,
     r#"csrftoken=M6KLflMyIB3wb8WYyaayYFrC9lU02LaqPc1tmUEsHiIDY7q5Rb9VcRnV4kHv2ALf; messages="bb0c0d208dc7c09f59ec1e3384ed885072da2eff$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain4.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyNDUiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjQ3NTBlYzQ2ODIwYmY5YzU4NDYzZTFjMmE1MGZjYzA3MTViNGM2ZWIiLCJpZCI6MTAxMzgyNDUsImVtYWlsIjoib25lb2ZtYW55bWFnbnVtb3BhaUBnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kaWphaW40IiwidXNlcl9zbHVnIjoiYW5hbmRpamFpbjQiLCJhdmF0YXIiOiJodHRwczovL3MzLXVzLXdlc3QtMS5hbWF6b25hd3MuY29tL3MzLWxjLXVwbG9hZC9hc3NldHMvZGVmYXVsdF9hdmF0YXIuanBnIiwicmVmcmVzaGVkX2F0IjoxNjg5NzIxODgxLCJpcCI6IjY2LjMwLjIyMy45IiwiaWRlbnRpdHkiOiI1ZjBmZjVkODc5OWVkNGMwZWQzNTVmYTQ3NGE3YmJjMiIsInNlc3Npb25faWQiOjQyODA1NDcxLCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.QsBFXNi0twb6SKC6ngALv-8mlViRkztB75oiGBU7bDY; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1689722804792"#,
@@ -38,7 +38,7 @@ const COOKIES: &[&str] = &[
 ];
 
 const COOKIE: &str = COOKIES[0];
-const CSRF_TOKEN: &str = "oZ0DfxMNQ93CfcXVTMSnZKdSySbjDnQrUCMofppdwNwfNP9I4JWJvlYgfeWpp5Hy";
+const CSRF_TOKEN: &str = "RU9n6XSPpv7fEUIupPOyeA5wSp5Vo25dtDwD7Esa7mStCOpJGsguyaAxpLt5L8Kn";
 const USER_AGENT_STR: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36";
 
 const BASE_PATH: &str = "/Users/anand/.rust/dev/leetcode_evals/data/data/";
@@ -66,9 +66,7 @@ const ALL_REAL_LANGS: &[&str] = &[
     "erlang",
 ];
 
-static SLUG_ID_MAP: Lazy<HashMap<String, String>> = Lazy::new(|| {
-    build_slug_id_map()
-});
+static SLUG_ID_MAP: Lazy<HashMap<String, String>> = Lazy::new(|| build_slug_id_map());
 
 lazy_static! {
     static ref MARKDOWN_PREFIXES: HashMap<&'static str, &'static str> = {
@@ -174,7 +172,6 @@ fn build_slug_id_map() -> HashMap<String, String> {
                 .unwrap()
                 .to_string();
             slug_to_id.insert(slug.clone(), frontend_qid.clone());
-
         }
     }
     slug_to_id
@@ -938,27 +935,48 @@ async fn submit_and_check(
     Err("No submission was made".into())
 }
 
+async fn solve_all() -> () {
+    let mut i = 0usize;
+    for (slug, lang, model) in
+        build_all_mytups(get_qs(), ALL_REAL_LANGS.to_vec(), vec![OPENAI_GPT_MODEL])
+            .iter()
+            .progress()
+    {
+        if !get_solution_fn(&slug, &lang, &model).exists() {
+            i += 1;
+            match solve(&slug, &lang, &model).await {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("Error occurred in solve: {}", e);
+                    continue;
+                }
+            };
+            let local = Local::now();
+            println!("{}: {}", i, local.format("%Y-%m-%d %H:%M:%S").to_string());
+        }
+    }
+    ()
+}
+
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
     // tally_statuses();
     // this is the first submission where it seems like the question_id started getting off
     // let s = "closest-leaf-in-a-binary-tree";
     // println!("{}", SLUG_ID_MAP.get(s).unwrap()); // 742
-    println!("{}", SLUG_ID_MAP.get("network-delay-time").unwrap()); // 743
-                                                                    // the solution submitted to this slug had a function "network_delay_time"
-                                                                    // "network-delay-time" has frontendQuestionId 743
+    // println!("{}", SLUG_ID_MAP.get("network-delay-time").unwrap()); // 743
+    // the solution submitted to this slug had a function "network_delay_time"
+    // "network-delay-time" has frontendQuestionId 743
 
     // let (slug, lang, model) = parse_my_slug("closest-leaf-in-a-binary-tree_rust_gpt-3.5-turbo");
 
-    let (slug, lang, model) = parse_my_slug("network-delay-time_rust_gpt-3.5-turbo");
-    let c = get_submission_code(&slug, &lang, &model).unwrap();
-    let c2 = c.replace("\\n", "\n");
-    println!("{}", c2);
-    // let p = build_full_prompt(&slug, &lang);
-    // solve(&slug, &lang, &model);
-    if let Ok(x) = submit_and_check(&slug, &lang, &model).await {
-        println!("{:#?}", x);
-    }
+    // let (slug, lang, model) = parse_my_slug("network-delay-time_rust_gpt-3.5-turbo");
+    // let c = get_submission_code(&slug, &lang, &model).unwrap();
+    // let c2 = c.replace("\\n", "\n");
+    // println!("{}", c2);
+    // if let Ok(x) = submit_and_check(&slug, &lang, &model).await {
+    //     println!("{:#?}", x);
+    // }
 
     let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
 
@@ -968,7 +986,7 @@ pub async fn main() -> Result<(), reqwest::Error> {
     // let myslug_tups_cqs =
     //     build_all_mytups(cqs.clone(), ALL_REAL_LANGS.to_vec().clone(), vec![model]);
 
-    let myslug_tups_cqs = build_all_mytups(cqs.clone(), vec!["rust"], vec![model]);
+    let myslug_tups_cqs = build_all_mytups(cqs.clone(), vec!["python3"], vec![model]);
 
     for (slug, lang, model) in myslug_tups_cqs.iter().progress() {
         let sub_fn = get_submission_fn(slug, lang, model);
@@ -1000,81 +1018,6 @@ pub async fn main() -> Result<(), reqwest::Error> {
             }
         }
     }
-
-    // let mut i = 0usize;
-    // for (slug, lang, model) in myslug_tups.iter().progress() {
-    //     if !get_solution_fn(&slug, &lang, &model).exists() {
-    //         i += 1;
-    //         match solve(&slug, &lang, &model).await {
-    //             Ok(_) => (),
-    //             Err(e) => {
-    //                 eprintln!("Error occurred in solve: {}", e);
-    //                 continue;
-    //             }
-    //         };
-    //         let local = Local::now();
-    //         println!("{}: {}", i, local.format("%Y-%m-%d %H:%M:%S").to_string());
-    //     }
-    // }
-
-    // if get_submission_fn(slug, lang, model).exists() {
-    //     println!("Submission already exists for {:?}!", get_submission_fn(slug, lang, model));
-    //     continue;
-    // }
-
-    // match build_submission_json(slug, lang, model) {
-    //     Ok(post_body) => match submit_solution(slug, lang, model, post_body).await {
-    //         Ok(v) => {
-    //             if let Some(id) = v["submission_id"].as_i64() {
-    //                 tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
-    //                 let check = match get_submission_check(&id.to_string()).await {
-    //                     Ok(check) => check,
-    //                     Err(e) => {
-    //                         println!("Error getting submission check id: {}", e);
-    //                         continue;
-    //                     }
-    //                 };
-    //                 println!("{:#?}", check);
-    //                 match save_submission(slug, lang, model, &check).await {
-    //                     Ok(_) => {
-    //                         let local = Local::now();
-    //                         println!("{}", local.format("%Y-%m-%d %H:%M:%S").to_string());
-    //                     }
-    //                     Err(e) => {
-    //                         println!("Error saving submission: {}", e);
-    //                         continue;
-    //                     }
-    //                 }
-    //             } else {
-    //                 if let Some(error) = v.get("error").and_then(|error| error.as_str()) {
-    //                     if error == "User is not authenticated" {
-    //                         panic!("User is not authenticated");
-    //                     } else if error == "Submission disabled for this question." {
-    //                         continue;
-    //                     }
-    //                 } else {
-    //                     panic!("Error in response: {:?}", v);
-    //                     continue;
-    //                 }
-    //             }
-    //         }
-    //         Err(e) => {
-    //             panic!(
-    //                 "Error submitting solution (most likely rate limited by leetcode): {}",
-    //                 e
-    //             );
-    //             continue;
-    //         }
-    //     },
-    //     Err(e) => {
-    //         println!(
-    //             "Error building {} submission JSON: {}",
-    //             my_slug(slug, lang, model),
-    //             e
-    //         );
-    //     }
-    // }
-    // }
 
     Ok(())
 }
