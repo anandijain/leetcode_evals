@@ -17,4 +17,5 @@ polars = "0.31.1"
 regex = "1.8.4"
 reqwest = { version = "0.11.18", features = ["json", "serde_json"] }
 serde_json = "1.0.97"
+thirtyfour = "0.31.0"
 tokio = { version = "1.28.2", features = ["full"] }
