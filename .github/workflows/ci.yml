@@ -26,13 +26,8 @@ jobs:
         run: wget https://github.com/anandijain/leetcode_evals/releases/download/0.1.0/data.tar.gz
       - name: Unpack data.tar.gz to ./data/
         run: |
-          mkdir -p data/
-          tar -xzf data.tar.gz -C data/
-      - name: Move contents up one level
-        run: |
-          mv data/data/* data/ || true
-          rmdir data/data || true
+          tar -xzf data.tar.gz
       - name: List contents of data folder
         run: ls -al data/
-    #   - run: cargo build --verbose
-    #   - run: cargo test --verbose
+       - run: cargo build --verbose
+       - run: cargo test --verbose
