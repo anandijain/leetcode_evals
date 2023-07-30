@@ -24,10 +24,12 @@ jobs:
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - name: Download data.tar.gz
         run: wget https://github.com/anandijain/leetcode_evals/releases/download/0.1.0/data.tar.gz
-      - name: Unpack data.tar.gz to ./data/data/
+      - name: Unpack data.tar.gz to ./data/
         run: |
-          mkdir -p data/data/
-          tar -xzf data.tar.gz --strip-components=1 -C data/data/
+          mkdir -p data/
+          tar -xzf data.tar.gz -C data/
+      - name: Move contents up one level
+        run: mv data/data/* data/data/ || true
       - name: List contents of data folder
         run: ls -al data/data/
     #   - run: cargo build --verbose
