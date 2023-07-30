@@ -29,5 +29,5 @@ jobs:
           tar -xzf data.tar.gz
       - name: List contents of data folder
         run: ls -al data/
-       - run: cargo build --verbose
-       - run: cargo test --verbose
+      - run: cargo build --verbose
+      - run: cargo test --verbose
