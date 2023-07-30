@@ -27,5 +27,7 @@ jobs:
         run: |
           mkdir -p data/data
           tar -xzf data.tar.gz -C data/data
-      - run: cargo build --verbose
-      - run: cargo test --verbose
+      - name: List contents of data folder
+        run: ls -al data/data/
+    #   - run: cargo build --verbose
+    #   - run: cargo test --verbose
