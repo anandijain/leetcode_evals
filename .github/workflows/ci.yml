@@ -1,0 +1,30 @@
+name: Cargo Build & Test
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_and_test:
+    name: Rust project - latest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+          - beta
+          - nightly
+    steps:
+      - uses: actions/checkout@v3
+      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+      - name: Download data.tar.gz
+        run: wget https://github.com/anandijain/leetcode_evals/releases/download/0.1.0/data.tar.gz
+      - name: Unpack data.tar.gz to ./data/data/
+        run: |
+          mkdir -p data/data
+          tar -xzf data.tar.gz -C data/data
+      - run: cargo build --verbose
+      - run: cargo test --verbose

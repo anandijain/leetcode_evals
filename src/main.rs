@@ -33,17 +33,17 @@ const OPENAI_GPT_MODEL: &str = "gpt-3.5-turbo";
 
 const COOKIES: &[&str] = &[
     r#"csrftoken=5180mCETfZYeuAf66WuSs7mmEAG48arQ5D5lZaCzKPjt1nmG5saHrXZmkhGaaLRI; messages="355ba39e0f8febeea9925b7911e2e001fb4be2bf$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to thisisagag@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain2.\"]\054[\"__json_message\"\0540\05425\054\"You have confirmed thisisagag@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to anandash2@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain3.\"]\054[\"__json_message\"\0540\05425\054\"You have confirmed anandash2@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to oneofmanymagnumopai@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain4.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to radiator.runoff@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain5.\"]\054[\"__json_message\"\0540\05425\054\"You have confirmed radiator.runoff@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain2.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMzYwNTc2OCIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImRqYW5nby5jb250cmliLmF1dGguYmFja2VuZHMuTW9kZWxCYWNrZW5kIiwiX2F1dGhfdXNlcl9oYXNoIjoiMjEwNWIxYWQ3ZjNhOWNhMmZiMzc1N2FhNzEzZjQ4MmFiNTMxOWVmNyIsImlkIjozNjA1NzY4LCJlbWFpbCI6ImRhaG1laC5hbG1vc0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kamFpbiIsInVzZXJfc2x1ZyI6ImFuYW5kamFpbiIsImF2YXRhciI6Imh0dHBzOi8vYXNzZXRzLmxlZXRjb2RlLmNvbS91c2Vycy9hdmF0YXJzL2F2YXRhcl8xNjc4OTA5MTg5LnBuZyIsInJlZnJlc2hlZF9hdCI6MTY5MDIyNjg1NSwiaXAiOiI2Ni4zMC4yMjMuOSIsImlkZW50aXR5IjoiNWYwZmY1ZDg3OTllZDRjMGVkMzU1ZmE0NzRhN2JiYzIiLCJzZXNzaW9uX2lkIjo0MzEyMzM0NywiX3Nlc3Npb25fZXhwaXJ5IjoxMjA5NjAwfQ.4ZsVg7zUn-fR-PqC81AsJDRnjaKo9jElMD8E9nHS4f0; _dd_s=rum=0&expire=1690292592248"#,
-    r#"csrftoken=Jjxy8fQjnLP0B3ETRJ5ZU8ObHjKB6NQUMGMziPuNL78ylp5CPiM9FYehS6BXhr3w; messages="40f1b87013c4898ef73e5b0025fdc1d3bd31d22a$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain2.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgwOTMiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjY1OTc3NGI0MjBlNmNhNTRkZjMyMzEzZDhlN2U5NjI1YTAyN2I2OTkiLCJpZCI6MTAxMzgwOTMsImVtYWlsIjoidGhpc2lzYWdhZ0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kaWphaW4yIiwidXNlcl9zbHVnIjoiYW5hbmRpamFpbjIiLCJhdmF0YXIiOiJodHRwczovL3MzLXVzLXdlc3QtMS5hbWF6b25hd3MuY29tL3MzLWxjLXVwbG9hZC9hc3NldHMvZGVmYXVsdF9hdmF0YXIuanBnIiwicmVmcmVzaGVkX2F0IjoxNjg5NzI0MzcwLCJpcCI6IjY2LjMwLjIyMy45IiwiaWRlbnRpdHkiOiI1ZjBmZjVkODc5OWVkNGMwZWQzNTVmYTQ3NGE3YmJjMiIsInNlc3Npb25faWQiOjQyODA2Mjk4LCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.eoq38F3K7YgXzom6T8tHRT_lUaN4hT3-PA9R5PYxdNI; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=2&id=7ca1b08c-270c-4a6d-849c-cfdd45b0425c&created=1689724363696&expire=1689725290252"#,
-    r#"csrftoken=TfAg1y36XrJjGQ1GdZJWDOSQ11ZnK2lpPW9zzzhqt4eqQBQIb2nPyBS82YFiy9bS; messages="933207930920dd9ca86f3ebb068c06d4926043f4$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain3.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyMzQiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjQ5MWU2ODk5Y2Y1ZDM4NjRkNTc0OTVlN2FkMzI4ZDZiYWVmMDQwNTMiLCJpZCI6MTAxMzgyMzQsImVtYWlsIjoiYW5hbmRhc2gyQGdtYWlsLmNvbSIsInVzZXJuYW1lIjoiYW5hbmRpamFpbjMiLCJ1c2VyX3NsdWciOiJhbmFuZGlqYWluMyIsImF2YXRhciI6Imh0dHBzOi8vczMtdXMtd2VzdC0xLmFtYXpvbmF3cy5jb20vczMtbGMtdXBsb2FkL2Fzc2V0cy9kZWZhdWx0X2F2YXRhci5qcGciLCJyZWZyZXNoZWRfYXQiOjE2ODk3MjQ1NTcsImlwIjoiNjYuMzAuMjIzLjkiLCJpZGVudGl0eSI6IjVmMGZmNWQ4Nzk5ZWQ0YzBlZDM1NWZhNDc0YTdiYmMyIiwic2Vzc2lvbl9pZCI6NDI4MDYzNjUsIl9zZXNzaW9uX2V4cGlyeSI6MTIwOTYwMH0.Or_EnxwAWMMTlfg3hYEi-cfsDwYmh2FvrRTnfiQG_eI; _dd_s=rum=0&expire=1689725474935"#,
-    r#"csrftoken=M6KLflMyIB3wb8WYyaayYFrC9lU02LaqPc1tmUEsHiIDY7q5Rb9VcRnV4kHv2ALf; messages="bb0c0d208dc7c09f59ec1e3384ed885072da2eff$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain4.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyNDUiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjQ3NTBlYzQ2ODIwYmY5YzU4NDYzZTFjMmE1MGZjYzA3MTViNGM2ZWIiLCJpZCI6MTAxMzgyNDUsImVtYWlsIjoib25lb2ZtYW55bWFnbnVtb3BhaUBnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kaWphaW40IiwidXNlcl9zbHVnIjoiYW5hbmRpamFpbjQiLCJhdmF0YXIiOiJodHRwczovL3MzLXVzLXdlc3QtMS5hbWF6b25hd3MuY29tL3MzLWxjLXVwbG9hZC9hc3NldHMvZGVmYXVsdF9hdmF0YXIuanBnIiwicmVmcmVzaGVkX2F0IjoxNjg5NzIxODgxLCJpcCI6IjY2LjMwLjIyMy45IiwiaWRlbnRpdHkiOiI1ZjBmZjVkODc5OWVkNGMwZWQzNTVmYTQ3NGE3YmJjMiIsInNlc3Npb25faWQiOjQyODA1NDcxLCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.QsBFXNi0twb6SKC6ngALv-8mlViRkztB75oiGBU7bDY; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1689722804792"#,
-    r#"csrftoken=iR0qA1m253k02nHhf1sF59kEZYfkLVtFfNMHhJTd3akHwpQnwiYJEixhmNHrbeDe; messages="e3c5c17025394d2347b1038aa9b84747c33faa0b$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain5.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyNjciLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjI4YWE2OWNjY2ExMWNjZmRiZDg1Y2QwZTcxNzJmNDJmZWQ3ZDM3N2MiLCJpZCI6MTAxMzgyNjcsImVtYWlsIjoicmFkaWF0b3IucnVub2ZmQGdtYWlsLmNvbSIsInVzZXJuYW1lIjoiYW5hbmRpamFpbjUiLCJ1c2VyX3NsdWciOiJhbmFuZGlqYWluNSIsImF2YXRhciI6Imh0dHBzOi8vczMtdXMtd2VzdC0xLmFtYXpvbmF3cy5jb20vczMtbGMtdXBsb2FkL2Fzc2V0cy9kZWZhdWx0X2F2YXRhci5qcGciLCJyZWZyZXNoZWRfYXQiOjE2ODk3MjIyMjgsImlwIjoiNjYuMzAuMjIzLjkiLCJpZGVudGl0eSI6IjVmMGZmNWQ4Nzk5ZWQ0YzBlZDM1NWZhNDc0YTdiYmMyIiwic2Vzc2lvbl9pZCI6NDI4MDU1ODUsIl9zZXNzaW9uX2V4cGlyeSI6MTIwOTYwMH0.Ee6x4W0ydvTANrVhnZvrjkdqIpKJiq-OBz62-1MFV9Y; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1689723164062"#,
+    r#"csrftoken=OVyYaFct7KtLGrwJ24B9R6SNxveAdLAW3eIUzvhGe4sYZnYCSEu4zZbXKpxxfuHt; messages="40f1b87013c4898ef73e5b0025fdc1d3bd31d22a$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain2.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgwOTMiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjY1OTc3NGI0MjBlNmNhNTRkZjMyMzEzZDhlN2U5NjI1YTAyN2I2OTkiLCJpZCI6MTAxMzgwOTMsImVtYWlsIjoidGhpc2lzYWdhZ0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kaWphaW4yIiwidXNlcl9zbHVnIjoiYW5hbmRpamFpbjIiLCJhdmF0YXIiOiJodHRwczovL3MzLXVzLXdlc3QtMS5hbWF6b25hd3MuY29tL3MzLWxjLXVwbG9hZC9hc3NldHMvZGVmYXVsdF9hdmF0YXIuanBnIiwicmVmcmVzaGVkX2F0IjoxNjkwNjYwOTE4LCJpcCI6IjY2LjMwLjIyMy45IiwiaWRlbnRpdHkiOiI1ZjBmZjVkODc5OWVkNGMwZWQzNTVmYTQ3NGE3YmJjMiIsInNlc3Npb25faWQiOjQzNDAxNjUwLCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.Me5eiuNOTMLRcKYFfwZt9Z4-Wv77SS-aAJQnjWQzrjI; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1690661836912"#,
+    r#"csrftoken=ulxpAvT3HarrS2exBseycxTSeojAkDgjeiReDxa4d4dv0igFvuKSp3KBeavVjYae; _ga_CDRWKZTDEX=GS1.1.1690651758.1.1.1690651783.35.0.0; _ga=GA1.1.1428573774.1690651758; _dd_s=rum=0&expire=1690652689360; messages="933207930920dd9ca86f3ebb068c06d4926043f4$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain3.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyMzQiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9…cy5jb20vczMtbGMtdXBsb2FkL2Fzc2V0cy9kZWZhdWx0X2F2YXRhci5qcGciLCJyZWZyZXNoZWRfYXQiOjE2OTA2NTE3NzIsImlwIjoiNjYuMzAuMjIzLjkiLCJpZGVudGl0eSI6IjM4YTE5ZGZlNWJjNWMxMWU5YmQ5YjkwNTQ0ZWZmOGE5Iiwic2Vzc2lvbl9pZCI6NDMzOTU5MzMsIl9zZXNzaW9uX2V4cGlyeSI6MTIwOTYwMH0.4GsK59MHTFITZAMpE8CJO8ohhPLJA7c4AqGGqnpVKNo; NEW_PROBLEMLIST_PAGE=1; gr_user_id=aec70933-3adb-4fcb-b50d-ed3818a46433; 87b5a3c3f1a55520_gr_session_id=6678de7d-96fb-4225-b1be-9f8a3725a4c7; 87b5a3c3f1a55520_gr_session_id_sent_vst=6678de7d-96fb-4225-b1be-9f8a3725a4c7"#,
+    r#"csrftoken=Oqahqx51re9HOvQY7KL5YNxhHFTuWrAFcmNQRuOaYxBpE6WmTecLppVQla4jPmyQ; _ga_CDRWKZTDEX=GS1.1.1690651835.1.1.1690652065.6.0.0; _dd_s=rum=0&expire=1690652965722; 87b5a3c3f1a55520_gr_session_id=c6b4daec-3577-4c9b-b250-d08d1094bf36; 87b5a3c3f1a55520_gr_session_id_sent_vst=c6b4daec-3577-4c9b-b250-d08d1094bf36; _ga=GA1.1.994671939.1690651835; _gid=GA1.2.1983051490.1690651835; gr_user_id=1ac9ed3f-509a-4d3a-9935-3c1d17291d8f; _gat=1; NEW_PROBLEMLIST_PAGE=1; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyNDUiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjQ3NTBlYzQ2ODIwYmY5YzU4NDYzZTFjMmE1MGZjYzA3MTViNGM2ZWIiLCJpZCI6MTAxMzgyNDUsImVtYWlsIjoib25lb2ZtYW55bWFnbnVtb3BhaUBnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kaWphaW40IiwidXNlcl9zbHVnIjoiYW5hbmRpamFpbjQiLCJhdmF0YXIiOiJodHRwczovL3MzLXVzLXdlc3QtMS5hbWF6b25hd3MuY29tL3MzLWxjLXVwbG9hZC9hc3NldHMvZGVmYXVsdF9hdmF0YXIuanBnIiwicmVmcmVzaGVkX2F0IjoxNjkwNjUxOTA0LCJpcCI6IjY2LjMwLjIyMy45IiwiaWRlbnRpdHkiOiJmMjczZGFkMTI4OWI3YmZkMWE5YmU2Mzc2ODEzYjkyMiIsInNlc3Npb25faWQiOjQzMzk2MDM5LCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.dE59RL0s1UYma1BqV273wyDVCt7JnaSaNMqHB375_ck; messages="bb0c0d208dc7c09f59ec1e3384ed885072da2eff$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain4.\"]]""#,
+    // r#"csrftoken=iR0qA1m253k02nHhf1sF59kEZYfkLVtFfNMHhJTd3akHwpQnwiYJEixhmNHrbeDe; messages="e3c5c17025394d2347b1038aa9b84747c33faa0b$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain5.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyNjciLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjI4YWE2OWNjY2ExMWNjZmRiZDg1Y2QwZTcxNzJmNDJmZWQ3ZDM3N2MiLCJpZCI6MTAxMzgyNjcsImVtYWlsIjoicmFkaWF0b3IucnVub2ZmQGdtYWlsLmNvbSIsInVzZXJuYW1lIjoiYW5hbmRpamFpbjUiLCJ1c2VyX3NsdWciOiJhbmFuZGlqYWluNSIsImF2YXRhciI6Imh0dHBzOi8vczMtdXMtd2VzdC0xLmFtYXpvbmF3cy5jb20vczMtbGMtdXBsb2FkL2Fzc2V0cy9kZWZhdWx0X2F2YXRhci5qcGciLCJyZWZyZXNoZWRfYXQiOjE2ODk3MjIyMjgsImlwIjoiNjYuMzAuMjIzLjkiLCJpZGVudGl0eSI6IjVmMGZmNWQ4Nzk5ZWQ0YzBlZDM1NWZhNDc0YTdiYmMyIiwic2Vzc2lvbl9pZCI6NDI4MDU1ODUsIl9zZXNzaW9uX2V4cGlyeSI6MTIwOTYwMH0.Ee6x4W0ydvTANrVhnZvrjkdqIpKJiq-OBz62-1MFV9Y; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1689723164062"#,
 ];
 
 const COOKIE: &str = COOKIES[0];
-const CSRF_TOKEN: &str = "5180mCETfZYeuAf66WuSs7mmEAG48arQ5D5lZaCzKPjt1nmG5saHrXZmkhGaaLRI";
 const USER_AGENT_STR: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36";
 
-const BASE_PATH: &str = "/Users/anand/.rust/dev/leetcode_evals/data/data/";
+// const BASE_PATH: &str = "/Users/anand/.rust/dev/leetcode_evals/data/data/";
+const BASE_PATH: &str = "./data/data/";
 
 const RATE_LIMIT_STR: &str = "Error 429 - Rate limit exceeded!";
 
@@ -106,21 +106,6 @@ lazy_static! {
     };
 }
 
-// lazy_static! {
-//     pub static ref RATE_LIMITS: HashMap<String, (usize, usize)> = {
-//         let mut m = HashMap::new();
-//         m.insert("gpt-3.5-turbo", (3500, 90000));
-//         m.insert("gpt-3.5-turbo-0301", (3500, 90000));
-//         m.insert("gpt-3.5-turbo-0613", (3500, 90000));
-//         m.insert("gpt-3.5-turbo-16k", (3500, 180000));
-//         m.insert("gpt-3.5-turbo-16k-0613", (3500, 180000));
-//         m.insert("gpt-4", (200, 40000));
-//         m.insert("gpt-4-0314", (200, 40000));
-//         m.insert("gpt-4-0613", (200, 40000));
-//         m
-//     };
-// }
-
 fn get_markdown_prefix(lang_slug: &str) -> Option<&&str> {
     MARKDOWN_PREFIXES.get(lang_slug)
 }
@@ -136,7 +121,10 @@ async fn get_problemset() -> Result<(), reqwest::Error> {
         REFERER,
         HeaderValue::from_static("https://leetcode.com/problemset/all/"),
     );
-    headers.insert("x-csrftoken", HeaderValue::from_static(CSRF_TOKEN));
+    headers.insert(
+        "x-csrftoken",
+        HeaderValue::from_str(&csrftoken_from_cookie_str(COOKIE)).unwrap(),
+    );
 
     let data = json!({
         "query": "\n    query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {\n  problemsetQuestionList: questionList(\n    categorySlug: $categorySlug\n    limit: $limit\n    skip: $skip\n    filters: $filters\n  ) {\n    total: totalNum\n    questions: data {\n      acRate\n      difficulty\n      freqBar\n      frontendQuestionId: questionFrontendId\n      isFavor\n      paidOnly: isPaidOnly\n      status\n      title\n      titleSlug\n      topicTags {\n        name\n        id\n        slug\n      }\n      hasSolution\n      hasVideoSolution\n    }\n  }\n}\n",
@@ -192,7 +180,10 @@ async fn get_problems_and_code() -> Result<(), reqwest::Error> {
         REFERER,
         HeaderValue::from_static("https://leetcode.com/problemset/all/"),
     );
-    headers.insert("x-csrftoken", HeaderValue::from_static(CSRF_TOKEN));
+    headers.insert(
+        "x-csrftoken",
+        HeaderValue::from_str(&csrftoken_from_cookie_str(COOKIE)).unwrap(),
+    );
 
     let v: Value =
         serde_json::from_str(&std::fs::read_to_string("problemset.json").unwrap()).unwrap();
@@ -224,10 +215,8 @@ async fn get_problems_and_code() -> Result<(), reqwest::Error> {
             .send()
             .await?;
 
-        let data_path = format!(
-            "/Users/anand/.rust/dev/leetcode_evals/data/data/{}/prompt/",
-            slug
-        );
+        let data_path = format!("{}/{}/prompt/", BASE_PATH, slug);
+
         create_dir_all(&data_path).unwrap();
         write(
             format!("{}{}_prompt.json", data_path, slug),
@@ -528,6 +517,7 @@ pub async fn submit_solution(
     lang: &str,
     model: &str,
     post_body: Value,
+    cookie: &str,
 ) -> Result<String, reqwest::Error> {
     let client = reqwest::Client::new();
 
@@ -535,8 +525,12 @@ pub async fn submit_solution(
 
     // Build the headers
     let mut headers = HeaderMap::new();
-    headers.insert("Cookie", HeaderValue::from_static(COOKIE));
-    headers.insert("X-CSRFToken", HeaderValue::from_static(CSRF_TOKEN));
+    headers.insert("Cookie", HeaderValue::from_str(cookie).unwrap());
+
+    headers.insert(
+        "X-CSRFToken",
+        HeaderValue::from_str(&csrftoken_from_cookie_str(cookie)).unwrap(),
+    );
     headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
@@ -554,7 +548,10 @@ pub async fn submit_solution(
     response.text().await
 }
 
-pub async fn get_submission_check(id: &str) -> Result<Value, Box<dyn std::error::Error>> {
+pub async fn get_submission_check(
+    id: &str,
+    cookie: &str,
+) -> Result<Value, Box<dyn std::error::Error>> {
     let mut headers = reqwest::header::HeaderMap::new();
 
     // Set the headers
@@ -564,7 +561,7 @@ pub async fn get_submission_check(id: &str) -> Result<Value, Box<dyn std::error:
         "accept-language",
         HeaderValue::from_static("en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7"),
     );
-    headers.insert("cookie", HeaderValue::from_str(COOKIE).unwrap());
+    headers.insert("cookie", HeaderValue::from_str(cookie).unwrap());
     headers.insert("dnt", HeaderValue::from_static("1"));
     headers.insert(
         "sec-ch-ua",
@@ -669,10 +666,15 @@ pub async fn solve(
     Ok(v)
 }
 
-async fn submit(slug: &str, lang: &str, model: &str) -> Result<String, Box<dyn std::error::Error>> {
+async fn submit(
+    slug: &str,
+    lang: &str,
+    model: &str,
+    cookie: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
     let post_body = build_submission_json(slug, lang, model)?;
     println!("{:#?}", post_body);
-    let response_text = submit_solution(slug, lang, model, post_body).await?;
+    let response_text = submit_solution(slug, lang, model, post_body, cookie).await?;
     Ok(response_text)
 }
 
@@ -905,14 +907,15 @@ async fn submit_and_check(
     slug: &str,
     lang: &str,
     model: &str,
+    cookie: &str,
 ) -> Result<Value, Box<dyn std::error::Error>> {
-    if let Ok(sub) = submit(&slug, &lang, &model).await {
+    if let Ok(sub) = submit(slug, lang, model, cookie).await {
         tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
         println!("{:#?}", sub);
 
         if let Ok(json_response) = serde_json::from_str::<Value>(&sub) {
             if let Some(id) = json_response["submission_id"].as_i64() {
-                let check = match get_submission_check(&id.to_string()).await {
+                let check = match get_submission_check(&id.to_string(), cookie).await {
                     Ok(check) => check,
                     Err(e) => {
                         return Err(format!("Error getting submission check id: {}", e).into());
@@ -963,18 +966,23 @@ async fn solve_all() -> () {
     }
     ()
 }
+
 async fn submit_all_solutions(
     myslug_tups: Vec<(String, String, String)>,
 ) -> Result<(), reqwest::Error> {
+    let mut cookie_idx = 0;
+    // let df = get_creds_df().await.unwrap();
+    // let mut cookie = get_cookie_string_from_index(&df, cookie_idx).await.unwrap();
+    let mut cookie = COOKIES[cookie_idx];
     for (slug, lang, model) in myslug_tups.iter().progress() {
         let sub_fn = get_submission_fn(slug, lang, model);
         if !sub_fn.exists() {
-            if let Ok(sub) = submit(&slug, &lang, &model).await {
+            if let Ok(sub) = submit(&slug, &lang, &model, cookie).await {
                 tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
                 println!("{:#?}", sub);
                 if let Ok(json_response) = serde_json::from_str::<Value>(&sub) {
                     if let Some(id) = json_response["submission_id"].as_i64() {
-                        let check = match get_submission_check(&id.to_string()).await {
+                        let check = match get_submission_check(&id.to_string(), cookie).await {
                             Ok(check) => check,
                             Err(e) => {
                                 panic!("Error getting submission check id: {}", e);
@@ -993,10 +1001,19 @@ async fn submit_all_solutions(
                                 // continue;
                             }
                         }
+                    } else {
+                        if json_response["error"].as_str() == Some("User is not authenticated") {
+                            panic!("YO WTF: User is not authenticated: {json_response}");
+                        }
                     }
                 } else {
                     if sub.contains(RATE_LIMIT_STR) {
-                        panic!("Rate limit exceeded");
+                        cookie_idx += 1;
+                        cookie = COOKIES[cookie_idx];
+                        //     get_cookie_string_from_index(&df, cookie_idx).await.unwrap();
+
+                        // panic!("Rate limit exceeded. TODO add swap cookie ");
+                        println!("Rate limit exceeded. New cookie_idx: {}", cookie_idx);
                     }
                 }
             }
@@ -1007,12 +1024,11 @@ async fn submit_all_solutions(
 }
 
 async fn get_cookie_string(username: &str, password: &str) -> Result<String, WebDriverError> {
-    // let cookie: String = get_cookie_string(, "$(5GwewCf%~QRLN").await.unwrap();
     let driver = WebDriver::new("http://localhost:9515", DesiredCapabilities::chrome()).await?;
 
     // Navigate to URL.
     driver.goto("https://leetcode.com/accounts/login/").await?;
-    // sleep(std::time::Duration::from_secs(1));
+    sleep(std::time::Duration::from_secs(1));
     // Find element.
     let username_field = driver.find(By::Name("login")).await?;
     let password_field = driver.find(By::Name("password")).await?;
@@ -1022,6 +1038,7 @@ async fn get_cookie_string(username: &str, password: &str) -> Result<String, Web
     password_field.send_keys(password).await?;
     // password_field.click(Key::Enter).await?;
     let signin_btn = driver.find(By::Id("signin_btn")).await?;
+    sleep(std::time::Duration::from_secs(1));
     signin_btn.click().await?;
     driver.goto("https://leetcode.com/anandjain/").await?;
 
@@ -1031,7 +1048,7 @@ async fn get_cookie_string(username: &str, password: &str) -> Result<String, Web
     for cookie in cookies {
         cookie_string.push_str(&format!("{}={}; ", cookie.name(), cookie.value()));
     }
-    println!("{}", cookie_string);
+    println!("COOKIE for {} {}: {}", username, password, cookie_string);
 
     // Quit driver.
     driver.quit().await?;
@@ -1039,14 +1056,59 @@ async fn get_cookie_string(username: &str, password: &str) -> Result<String, Web
     Ok(cookie_string)
 }
 
+async fn get_creds_df() -> Result<DataFrame, Box<dyn Error>> {
+    let mut schema = Schema::new();
+    schema.with_column("username".into(), DataType::Utf8);
+    schema.with_column("password".into(), DataType::Utf8);
+
+    let df = CsvReader::from_path("creds.csv")?
+        .with_schema(schema.into())
+        .has_header(true)
+        .finish()?;
+
+    Ok(df)
+}
+
+async fn get_creds_from_index(
+    df: &DataFrame,
+    idx: usize,
+) -> Result<(String, String), Box<dyn Error>> {
+    let username = df.column("username")?.get(idx).unwrap().to_string();
+    let password = df.column("password")?.get(idx).unwrap().to_string();
+
+    Ok((username, password))
+}
+
+async fn get_cookie_string_from_index(
+    df: &DataFrame,
+    idx: usize,
+) -> Result<String, Box<dyn Error>> {
+    let (username, password) = get_creds_from_index(df, idx).await.unwrap();
+    let cookie = get_cookie_string(&username, &password).await?;
+
+    Ok(cookie)
+}
+
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
-    tally_statuses();
-    let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
+    // step one is remove all the references to COOKIE and make it an arg (done )
+    // 2) is see if i need that "LEETCODE_SESSION" part of the cookie to make submissions
+    // 3) if it does work then add the code to swap creds/cookies on rate limit error
+    // 4) if it doesn't work then look into setting up the proxy server
+
+    // tally_statuses();
+    // let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
     let model = OPENAI_GPT_MODEL;
     let myslug_tups_cqs = build_all_mytups(get_qs(), ALL_REAL_LANGS.to_vec(), vec![model]);
+    // let (slug, lang, model) = &myslug_tups_cqs[0];
+    // let x = submit_and_check(&slug, &lang, &model, COOKIES[1])
+    //     .await;
+    // println!("{:?}", x);
     submit_all_solutions(myslug_tups_cqs).await?;
-
+    // let df = get_creds_df().await.unwrap();
+    // let (username, password) = get_creds_from_index(&df, 0).await.unwrap();
+    // let cookie = get_cookie_string(&username, &password).await.unwrap();
+    // get_cookie_string()
     Ok(())
     // Ok(())
 }
