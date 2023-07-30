@@ -1100,11 +1100,13 @@ pub async fn main() -> Result<(), reqwest::Error> {
     // let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
     let model = OPENAI_GPT_MODEL;
     let myslug_tups_cqs = build_all_mytups(get_qs(), ALL_REAL_LANGS.to_vec(), vec![model]);
+    println!("{}", myslug_tups_cqs.len());
+
+    // submit_all_solutions(myslug_tups_cqs).await?;
     // let (slug, lang, model) = &myslug_tups_cqs[0];
     // let x = submit_and_check(&slug, &lang, &model, COOKIES[1])
     //     .await;
     // println!("{:?}", x);
-    submit_all_solutions(myslug_tups_cqs).await?;
     // let df = get_creds_df().await.unwrap();
     // let (username, password) = get_creds_from_index(&df, 0).await.unwrap();
     // let cookie = get_cookie_string(&username, &password).await.unwrap();
@@ -1131,12 +1133,18 @@ print('Hello, World!')
 
     #[test]
     fn test_solution_count() {
+        let qs = get_qs();
         let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
         let models = vec![OPENAI_GPT_MODEL];
 
         let myslug_tups_cqs =
             build_all_mytups(cqs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
         assert_eq!(myslug_tups_cqs.len(), ALL_REAL_LANGS.len() * cqs.len());
+
+        let all_myslugs =
+            build_all_mytups(qs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
+        assert_eq!(all_myslugs.len(), 39031);
+
         for (slug, lang, model) in myslug_tups_cqs {
             let p = get_solution_fn(&slug, &lang, &model);
             assert!(p.exists());
