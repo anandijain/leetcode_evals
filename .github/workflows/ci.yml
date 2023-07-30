@@ -29,8 +29,10 @@ jobs:
           mkdir -p data/
           tar -xzf data.tar.gz -C data/
       - name: Move contents up one level
-        run: mv data/data/* data/data/ || true
+        run: |
+          mv data/data/* data/ || true
+          rmdir data/data || true
       - name: List contents of data folder
-        run: ls -al data/data/
+        run: ls -al data/
     #   - run: cargo build --verbose
     #   - run: cargo test --verbose
