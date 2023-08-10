@@ -1,6 +1,7 @@
 use indicatif::{self, ProgressBar, ProgressIterator, ProgressStyle};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFERER, USER_AGENT};
 use reqwest::Client;
+use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -11,11 +12,10 @@ use thirtyfour::prelude::WebDriverError;
 
 use chrono::{prelude::*, Duration};
 use cookie::Cookie;
-use governor::clock::DefaultClock;
-use governor::{Quota, RateLimiter};
 use once_cell::sync::Lazy;
-use polars::prelude::*;
 use regex::Regex;
+use serde_derive::Deserialize;
+use serde_derive::Serialize;
 use std::fs::create_dir_all;
 use std::fs::{write, File};
 use std::io::Write;
@@ -28,6 +28,7 @@ use tokio::try_join;
 extern crate lazy_static;
 
 const OPENAI_API_KEY: &str = env!("OPENAI_API_KEY");
+// const OPENAI_API_KEY: &str = &std::env::var("OPENAI_API_KEY").unwrap();
 const OPENAI_GPT_MODEL: &str = "gpt-3.5-turbo";
 // const OPENAI_GPT_MODEL: &str = "gpt-4";
 
@@ -106,6 +107,99 @@ lazy_static! {
     };
 }
 
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionsRoot {
+    pub data: QuestionsData,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionsData {
+    pub problemset_question_list: ProblemsetQuestionList,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProblemsetQuestionList {
+    pub total: i64,
+    pub questions: Vec<Question>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Question {
+    pub ac_rate: f64,
+    pub difficulty: String,
+    pub freq_bar: Value,
+    pub frontend_question_id: String,
+    pub is_favor: bool,
+    pub paid_only: bool,
+    pub status: Value,
+    pub title: String,
+    pub title_slug: String,
+    pub topic_tags: Vec<TopicTag>,
+    pub has_solution: bool,
+    pub has_video_solution: bool,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TopicTag {
+    pub name: String,
+    pub id: String,
+    pub slug: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptRoot {
+    pub data: PromptData,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptData {
+    pub question: Prompt,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Prompt {
+    pub content: String,
+    pub mysql_schemas: Vec<Value>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeRoot {
+    pub data: CodeData,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeData {
+    pub question: CodeQuestion,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeQuestion {
+    pub question_id: String,
+    pub question_frontend_id: String,
+    pub code_snippets: Vec<CodeSnippet>,
+    pub env_info: String,
+    pub enable_run_code: bool,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeSnippet {
+    pub lang: String,
+    pub lang_slug: String,
+    pub code: String,
+}
+
 fn get_markdown_prefix(lang_slug: &str) -> Option<&&str> {
     MARKDOWN_PREFIXES.get(lang_slug)
 }
@@ -157,13 +251,10 @@ fn build_slug_id_map() -> HashMap<String, String> {
     let mut slug_to_id = HashMap::new();
 
     for q in qs {
-        let slug = get_title_slug(&q);
+        let slug = q.title_slug;
         if let Ok(code) = get_code(&slug) {
-            let frontend_qid = code["data"]["question"]["questionId"]
-                .as_str()
-                .unwrap()
-                .to_string();
-            slug_to_id.insert(slug.clone(), frontend_qid.clone());
+            let qid = code.data.question.question_id;
+            slug_to_id.insert(slug.clone(), qid.clone());
         }
     }
     slug_to_id
@@ -196,7 +287,7 @@ async fn get_problems_and_code() -> Result<(), reqwest::Error> {
             continue;
         }
         let slug = question["titleSlug"].as_str().unwrap();
-        let url = format!("{}{}", base, slug.clone());
+        let url = format!("{}{}", base, slug);
 
         headers.insert(REFERER, url.parse().unwrap());
 
@@ -314,9 +405,9 @@ fn get_prompt_path(title_slug: &str) -> PathBuf {
     f
 }
 
-fn get_title_slug(question: &Value) -> String {
-    question["titleSlug"].as_str().unwrap().to_string()
-}
+// fn get_title_slug(question: &Question) -> String {
+//     question.title_slug
+// }
 
 // Function to get the code path
 fn get_code_path(title_slug: &str) -> PathBuf {
@@ -324,62 +415,53 @@ fn get_code_path(title_slug: &str) -> PathBuf {
     dir_path.join(format!("{}_code.json", title_slug))
 }
 
-fn read_json<P: AsRef<Path>>(file_path: P) -> Result<Value, serde_json::Error> {
-    serde_json::from_str(&fs::read_to_string(file_path).unwrap())
+fn read_json<T: DeserializeOwned, P: AsRef<Path>>(file_path: P) -> Result<T, serde_json::Error> {
+    let file_content = fs::read_to_string(file_path).unwrap();
+    serde_json::from_str(&file_content)
 }
 
-fn get_prompt(title_slug: &str) -> Result<Value, serde_json::Error> {
+fn get_prompt(title_slug: &str) -> Result<PromptRoot, serde_json::Error> {
     let prompt_path = get_prompt_path(title_slug);
     read_json(prompt_path)
 }
 
-fn get_code(title_slug: &str) -> Result<Value, serde_json::Error> {
+fn get_code(title_slug: &str) -> Result<CodeRoot, serde_json::Error> {
     let code_path = get_code_path(title_slug);
     read_json(code_path)
 }
-fn get_content_from_json(prompt_json: &Value) -> Result<String, Box<dyn std::error::Error>> {
-    if let Some(content) = prompt_json["data"]["question"]["content"].as_str() {
-        Ok(content.to_string())
-    } else {
-        Err("Content not found in JSON".into())
-    }
-}
 
-fn get_content_from_title_slug(title_slug: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let prompt_json = get_prompt(title_slug)?;
-    get_content_from_json(&prompt_json)
-}
+// fn get_content_from_json(prompt_json: &PromptRoot) -> Result<String, Box<dyn std::error::Error>> {
+//     Ok(prompt_json.data.question.content)
+// }
 
-fn get_code_snippets(data: &Value) -> Option<&Value> {
-    // Navigate to the 'codeSnippets' field.
-    data.get("data")?.get("question")?.get("codeSnippets")
-}
 
-fn get_code_for_lang(code_snippets: &Value, lang: &str) -> Result<String, Box<dyn Error>> {
+// fn get_code_snippets(data: &CodeRoot) -> Vec<CodeSnippet> {
+//     // Navigate to the 'codeSnippets' field.
+//     data.data.question.code_snippets
+//     // data.get("data")?.get("question")?.get("codeSnippets")
+// }
+
+fn get_code_for_lang(code_snippets: &Vec<CodeSnippet>, lang: &str) -> Result<String, Box<dyn Error>> {
     code_snippets
-        .as_array()
-        .ok_or("Expected array")?
         .iter()
-        .filter_map(|s| s.as_object())
-        .find(|s| s.get("langSlug").and_then(Value::as_str) == Some(lang))
-        .and_then(|s| s.get("code").and_then(Value::as_str))
-        .map(str::to_string)
+        .find(|&s| s.lang_slug == lang)
+        .map(|s| s.code.clone())
         .ok_or_else(|| "No matching snippet for the specified language".into())
 }
 
-fn has_lang(code_snippets: &Value, lang: &str) -> bool {
+fn has_lang(code_snippets: &Vec<CodeSnippet>, lang: &str) -> bool {
     get_code_for_lang(code_snippets, lang).is_ok()
 }
 
 fn build_prompt(title_slug: &str, lang: &str) -> Result<(String, String), Box<dyn Error>> {
     // Read the prompt and get the content
     let prompt_json = get_prompt(title_slug)?;
-    let content = get_content_from_json(&prompt_json)?;
+    let content = prompt_json.data.question.content;
 
     // Read the code JSON and get the code snippet for the specified language
     let code_json = get_code(title_slug)?;
-    let code_snippets = get_code_snippets(&code_json).ok_or("Code snippets not found")?;
-    let code = get_code_for_lang(code_snippets, lang)?;
+    let code_snippets = code_json.data.question.code_snippets;
+    let code = get_code_for_lang(&code_snippets, lang)?;
 
     Ok((content, code))
 }
@@ -623,11 +705,11 @@ fn build_oai_pair(slug: &str, lang: &str, model: &str) -> (PathBuf, Value) {
     )
 }
 
-fn get_questions_for_lang(qs: &Vec<Value>, lang: &str) -> Vec<Value> {
+fn get_questions_for_lang(qs: &Vec<Question>, lang: &str) -> Vec<Question> {
     let mut lqs = vec![];
     for q in qs {
-        let code = get_code(&get_title_slug(&q)).unwrap();
-        let code_snippets = get_code_snippets(&code).unwrap();
+        let code = get_code(&q.title_slug).unwrap();
+        let code_snippets = code.data.question.code_snippets;
         if has_lang(&code_snippets, lang) {
             lqs.push(q.clone());
         }
@@ -636,7 +718,7 @@ fn get_questions_for_lang(qs: &Vec<Value>, lang: &str) -> Vec<Value> {
 }
 
 fn build_all_mytups(
-    qs: Vec<Value>,
+    qs: Vec<Question>,
     langs: Vec<&str>,
     models: Vec<&str>,
 ) -> Vec<(String, String, String)> {
@@ -645,13 +727,31 @@ fn build_all_mytups(
         for l in langs.clone() {
             let lqs = get_questions_for_lang(&qs, l);
             for q in lqs.clone() {
-                let slug = get_title_slug(&q);
+                let slug = q.title_slug;
                 bodies.push((slug, l.to_string(), m.to_string()));
             }
         }
     }
     bodies
 }
+
+// fn build_all_mytups_noclone(
+//     qs: Vec<Question>,
+//     langs: Vec<&str>,
+//     models: Vec<&str>,
+// ) -> Vec<(String, String, String)> {
+//     let mut bodies = vec![];
+//     for m in &models {
+//         for l in &langs {
+//             let lqs = get_questions_for_lang(&qs, l);
+//             for q in &lqs {
+//                 let slug = q.title_slug;
+//                 bodies.push((slug, l.to_string(), m.to_string()));
+//             }
+//         }
+//     }
+//     bodies
+// }
 
 /// solve assumes that you've already run `get_problems_and_code`
 pub async fn solve(
@@ -678,30 +778,21 @@ async fn submit(
     Ok(response_text)
 }
 
-fn get_qs() -> Vec<Value> {
-    let v: Value =
+fn get_qs() -> Vec<Question> {
+    let v: QuestionsRoot =
         serde_json::from_str(&std::fs::read_to_string("problemset.json").unwrap()).unwrap();
-    let questions = v["data"]["problemsetQuestionList"]["questions"]
-        .as_array()
-        .unwrap();
-    let qs: Vec<_> = questions
-        .iter()
-        .filter(|q| match q["paidOnly"].as_bool() {
-            Some(paid_only) => !paid_only,
-            None => false,
-        })
-        .cloned() // Cloning the elements here
-        .collect();
+    let questions = v.data.problemset_question_list.questions;
+    let qs = questions.into_iter().filter(|q| !q.paid_only).collect();
     qs
 }
 
-fn tally_langs(qs: Vec<Value>) -> HashMap<String, usize> {
+fn tally_langs(qs: Vec<Question>) -> HashMap<String, usize> {
     let mut langs: HashMap<String, usize> = HashMap::new();
     for q in qs.iter() {
-        let code = get_code(&get_title_slug(q)).unwrap();
-        let code_snippets = get_code_snippets(&code).unwrap();
-        for snippet in code_snippets.as_array().unwrap() {
-            let lang = snippet["langSlug"].as_str().unwrap();
+        let code = get_code(&q.title_slug).unwrap();
+        let code_snippets = code.data.question.code_snippets;
+        for snippet in code_snippets {
+            let lang = snippet.lang_slug;
             let count = langs.entry(lang.to_string()).or_insert(0);
             *count += 1;
         }
@@ -709,13 +800,13 @@ fn tally_langs(qs: Vec<Value>) -> HashMap<String, usize> {
     langs
 }
 
-fn tally_files<F>(qs: Vec<Value>, get_fns: F) -> HashMap<String, usize>
+fn tally_files<F>(qs: Vec<Question>, get_fns: F) -> HashMap<String, usize>
 where
     F: Fn(&str) -> Result<std::fs::ReadDir, std::io::Error>,
 {
     let mut solutions: HashMap<String, usize> = HashMap::new();
     for q in qs.iter() {
-        let slug = get_title_slug(q);
+        let slug = &q.title_slug;
         // println!("slug: {}", slug);
         match get_fns(&slug) {
             Ok(files) => {
@@ -736,11 +827,11 @@ where
     solutions
 }
 
-fn tally_solutions(qs: Vec<Value>) -> HashMap<String, usize> {
+fn tally_solutions(qs: Vec<Question>) -> HashMap<String, usize> {
     tally_files(qs, get_solution_fns)
 }
 
-fn tally_submissions(qs: Vec<Value>) -> HashMap<String, usize> {
+fn tally_submissions(qs: Vec<Question>) -> HashMap<String, usize> {
     tally_files(qs, get_submission_fns)
 }
 
@@ -752,11 +843,11 @@ fn get_common_question_slugs(langs: Vec<&str>) -> Vec<String> {
     let mut title_slug_langs_map: HashMap<String, HashSet<String>> = HashMap::new();
 
     for q in qs.iter() {
-        let title_slug = get_title_slug(q).to_string();
+        let title_slug = q.title_slug.to_string();
         let code = get_code(&title_slug).unwrap();
-        let code_snippets = get_code_snippets(&code).unwrap();
-        for snippet in code_snippets.as_array().unwrap() {
-            let lang = snippet["langSlug"].as_str().unwrap().to_string();
+        let code_snippets = code.data.question.code_snippets;
+        for snippet in code_snippets {
+            let lang = snippet.lang_slug;
             title_slug_langs_map
                 .entry(title_slug.clone())
                 .or_insert(HashSet::new())
@@ -771,12 +862,12 @@ fn get_common_question_slugs(langs: Vec<&str>) -> Vec<String> {
         .collect()
 }
 
-fn get_common_questions(langs: Vec<&str>) -> Vec<Value> {
+fn get_common_questions(langs: Vec<&str>) -> Vec<Question> {
     let common_slugs = get_common_question_slugs(langs);
     let qs = get_qs();
 
     qs.into_iter()
-        .filter(|q| common_slugs.contains(&get_title_slug(q)))
+        .filter(|q| common_slugs.contains(&q.title_slug))
         .collect()
 }
 
@@ -836,72 +927,7 @@ fn tally_statuses() -> () {
     ()
 }
 
-fn build_write_solution_df() -> DataFrame {
-    let models = vec![OPENAI_GPT_MODEL];
-    let qs = get_qs();
-    let myslug_tups: Vec<(String, String, String)> =
-        build_all_mytups(qs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
-
-    let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
-    println!("\nCommon questions: {:#?}", cqs.len());
-    let model = models[0];
-
-    let myslug_tups_cqs =
-        build_all_mytups(cqs.clone(), ALL_REAL_LANGS.to_vec().clone(), models.clone());
-    println!("myslug_tups_cqs: {:#?}", myslug_tups_cqs.len());
-    let mut slug_col = Vec::new();
-    let mut lang_col = Vec::new();
-    let mut model_col = Vec::new();
-    let mut completion_tokens_col = Vec::new();
-    let mut prompt_tokens_col = Vec::new();
-    let mut total_tokens_col = Vec::new();
-    let mut num_lang_prefixed_codeblocks_col = Vec::new();
-    let mut num_codeblocks_col = Vec::new();
-
-    for (slug, lang, model) in myslug_tups_cqs.iter().progress() {
-        let filename = get_solution_fn(&slug, lang, model);
-        // println!("{:#?}", filename);
-        let soln_json = read_json(filename).unwrap();
-        let completion_tokens = soln_json["usage"]["completion_tokens"].as_u64().unwrap();
-        let prompt_tokens = soln_json["usage"]["prompt_tokens"].as_u64().unwrap();
-        let total_tokens = soln_json["usage"]["total_tokens"].as_u64().unwrap();
-
-        let c = extract_content(&soln_json).unwrap();
-        let lp_codeblocks = extract_specific_lang_codeblocks(&c, &lang);
-        let codeblocks = extract_codeblocks(&c);
-        slug_col.push(slug.to_string());
-        lang_col.push(lang.to_string());
-        model_col.push(model.to_string());
-        completion_tokens_col.push(completion_tokens);
-        prompt_tokens_col.push(prompt_tokens);
-        total_tokens_col.push(total_tokens);
-        num_codeblocks_col.push(codeblocks.len() as u64);
-        num_lang_prefixed_codeblocks_col.push(lp_codeblocks.len() as u64);
-    }
-    let mut df = DataFrame::new(vec![
-        Series::new("slug", slug_col),
-        Series::new("lang", lang_col),
-        Series::new("model", model_col),
-        Series::new("completion_tokens", completion_tokens_col),
-        Series::new("prompt_tokens", prompt_tokens_col),
-        Series::new("total_tokens", total_tokens_col),
-        Series::new("num_codeblocks", num_codeblocks_col),
-        Series::new(
-            "num_lang_prefixed_codeblocks",
-            num_lang_prefixed_codeblocks_col,
-        ),
-    ])
-    .unwrap();
-    let pfn = "solutions2.csv";
-    let mut file = File::create(pfn).expect("could not create file");
-    CsvWriter::new(&mut file)
-        .has_header(true)
-        .with_delimiter(b',')
-        .finish(&mut df)
-        .unwrap();
-
-    df
-}
+//
 
 async fn submit_and_check(
     slug: &str,
@@ -1056,39 +1082,6 @@ async fn get_cookie_string(username: &str, password: &str) -> Result<String, Web
     Ok(cookie_string)
 }
 
-async fn get_creds_df() -> Result<DataFrame, Box<dyn Error>> {
-    let mut schema = Schema::new();
-    schema.with_column("username".into(), DataType::Utf8);
-    schema.with_column("password".into(), DataType::Utf8);
-
-    let df = CsvReader::from_path("creds.csv")?
-        .with_schema(schema.into())
-        .has_header(true)
-        .finish()?;
-
-    Ok(df)
-}
-
-async fn get_creds_from_index(
-    df: &DataFrame,
-    idx: usize,
-) -> Result<(String, String), Box<dyn Error>> {
-    let username = df.column("username")?.get(idx).unwrap().to_string();
-    let password = df.column("password")?.get(idx).unwrap().to_string();
-
-    Ok((username, password))
-}
-
-async fn get_cookie_string_from_index(
-    df: &DataFrame,
-    idx: usize,
-) -> Result<String, Box<dyn Error>> {
-    let (username, password) = get_creds_from_index(df, idx).await.unwrap();
-    let cookie = get_cookie_string(&username, &password).await?;
-
-    Ok(cookie)
-}
-
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
     // step one is remove all the references to COOKIE and make it an arg (done )
@@ -1098,11 +1091,33 @@ pub async fn main() -> Result<(), reqwest::Error> {
 
     // tally_statuses();
     // let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
-    let model = OPENAI_GPT_MODEL;
-    let myslug_tups_cqs = build_all_mytups(get_qs(), ALL_REAL_LANGS.to_vec(), vec![model]);
-    println!("{}", myslug_tups_cqs.len());
+
+    // let model = OPENAI_GPT_MODEL;
+    // let myslug_tups_cqs = build_all_mytups(get_qs(), ALL_REAL_LANGS.to_vec(), vec![model]);
+    // println!("{}", myslug_tups_cqs.len());
 
     // submit_all_solutions(myslug_tups_cqs).await?;
+
+    let qs = get_qs();
+    let langs = ALL_REAL_LANGS.to_vec();
+    let ms = vec![OPENAI_GPT_MODEL];
+
+    let start = std::time::Instant::now();
+    let _result = build_all_mytups(qs, langs, ms);
+    let duration = start.elapsed();
+
+    println!("Time elapsed is: {:?}", duration);
+
+    // let qs = get_qs();
+    // let langs = ALL_REAL_LANGS.to_vec();
+    // let ms = vec![OPENAI_GPT_MODEL];
+
+    // let start = std::time::Instant::now();
+    // let _result = build_all_mytups_noclone(qs, langs, ms);
+    // let duration = start.elapsed();
+
+    // println!("Time elapsed noclone is: {:?}", duration);
+
     // let (slug, lang, model) = &myslug_tups_cqs[0];
     // let x = submit_and_check(&slug, &lang, &model, COOKIES[1])
     //     .await;
@@ -1148,8 +1163,18 @@ print('Hello, World!')
         for (slug, lang, model) in myslug_tups_cqs {
             let p = get_solution_fn(&slug, &lang, &model);
             assert!(p.exists());
-            let j = read_json(p).unwrap();
+            let j: Value = read_json(p).unwrap();
             assert!(j.get("error").is_none());
         }
     }
 }
+
+// #[bench]
+// fn benchmark_myslug_tups_cqs(b: &mut Bencher) {
+//     let qs = get_qs();
+//     let langs = ALL_REAL_LANGS.to_vec();
+//     let ms = vec![OPENAI_GPT_MODEL];
+//     b.iter(|| {
+//         build_all_mytups(qs.clone(), langs.clone(), ms.clone())
+//     });
+// }

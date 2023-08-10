@@ -1,3 +1,5 @@
 /target
 data/
 creds.csv
+*.tar.gz
+*.svg
