@@ -28,12 +28,15 @@ use tokio::try_join;
 extern crate lazy_static;
 
 const OPENAI_API_KEY: &str = env!("OPENAI_API_KEY");
+const LEETCODE_USERNAME: &str = "anandjain";
+const LEETCODE_PASSWORD: &str = env!("LEETCODE_PASSWORD");
+
 // const OPENAI_API_KEY: &str = &std::env::var("OPENAI_API_KEY").unwrap();
 const OPENAI_GPT_MODEL: &str = "gpt-3.5-turbo";
 // const OPENAI_GPT_MODEL: &str = "gpt-4";
 
 const COOKIES: &[&str] = &[
-    r#"csrftoken=5180mCETfZYeuAf66WuSs7mmEAG48arQ5D5lZaCzKPjt1nmG5saHrXZmkhGaaLRI; messages="355ba39e0f8febeea9925b7911e2e001fb4be2bf$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to thisisagag@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain2.\"]\054[\"__json_message\"\0540\05425\054\"You have confirmed thisisagag@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to anandash2@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain3.\"]\054[\"__json_message\"\0540\05425\054\"You have confirmed anandash2@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to oneofmanymagnumopai@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain4.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05420\054\"Confirmation e-mail sent to radiator.runoff@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain5.\"]\054[\"__json_message\"\0540\05425\054\"You have confirmed radiator.runoff@gmail.com.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain2.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]\054[\"__json_message\"\0540\05425\054\"You have signed out.\"]\054[\"__json_message\"\0540\05425\054\"Successfully signed in as anandjain.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMzYwNTc2OCIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImRqYW5nby5jb250cmliLmF1dGguYmFja2VuZHMuTW9kZWxCYWNrZW5kIiwiX2F1dGhfdXNlcl9oYXNoIjoiMjEwNWIxYWQ3ZjNhOWNhMmZiMzc1N2FhNzEzZjQ4MmFiNTMxOWVmNyIsImlkIjozNjA1NzY4LCJlbWFpbCI6ImRhaG1laC5hbG1vc0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kamFpbiIsInVzZXJfc2x1ZyI6ImFuYW5kamFpbiIsImF2YXRhciI6Imh0dHBzOi8vYXNzZXRzLmxlZXRjb2RlLmNvbS91c2Vycy9hdmF0YXJzL2F2YXRhcl8xNjc4OTA5MTg5LnBuZyIsInJlZnJlc2hlZF9hdCI6MTY5MDIyNjg1NSwiaXAiOiI2Ni4zMC4yMjMuOSIsImlkZW50aXR5IjoiNWYwZmY1ZDg3OTllZDRjMGVkMzU1ZmE0NzRhN2JiYzIiLCJzZXNzaW9uX2lkIjo0MzEyMzM0NywiX3Nlc3Npb25fZXhwaXJ5IjoxMjA5NjAwfQ.4ZsVg7zUn-fR-PqC81AsJDRnjaKo9jElMD8E9nHS4f0; _dd_s=rum=0&expire=1690292592248"#,
+    r#"csrftoken=QH2Ae0UYF6UDp06KeJOnQDPCsMCXsqcEakZPXDXE70A53kDOzho06WxNhEDKUxfG; __stripe_mid=545219a7-1ca1-42b4-a38c-b6ffa67f0d3897bda8; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMzYwNTc2OCIsIl9hdXRoX3VzZXJfYmFja2VuZCI6ImRqYW5nby5jb250cmliLmF1dGguYmFja2VuZHMuTW9kZWxCYWNrZW5kIiwiX2F1dGhfdXNlcl9oYXNoIjoiMjEwNWIxYWQ3ZjNhOWNhMmZiMzc1N2FhNzEzZjQ4MmFiNTMxOWVmNyIsImlkIjozNjA1NzY4LCJlbWFpbCI6ImRhaG1laC5hbG1vc0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kamFpbiIsInVzZXJfc2x1ZyI6ImFuYW5kamFpbiIsImF2YXRhciI6Imh0dHBzOi8vYXNzZXRzLmxlZXRjb2RlLmNvbS91c2Vycy9hdmF0YXJzL2F2YXRhcl8xNjc4OTA5MTg5LnBuZyIsInJlZnJlc2hlZF9hdCI6MTY5MzA1ODIzNCwiaXAiOiIyNjAxOjY0Nzo1YjAwOjEwMjoxNDQzOmZmMToxM2U2OjI4OSIsImlkZW50aXR5IjoiM2I4ZDM5OWI1NmZiOWRmNTU5MmIwNTFmZGUzNmM5MDMiLCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDAsInNlc3Npb25faWQiOjQ0MTI2MDI2fQ.skD7QSnkmTUEavxyy2rpNhiEX8EnE8X_bHPRtqiiGCA; __stripe_sid=bc4aa08e-1809-4c83-b48f-97ce0919bf3e799434; _dd_s=rum=0&expire=1693059243002"#,
     r#"csrftoken=OVyYaFct7KtLGrwJ24B9R6SNxveAdLAW3eIUzvhGe4sYZnYCSEu4zZbXKpxxfuHt; messages="40f1b87013c4898ef73e5b0025fdc1d3bd31d22a$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain2.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgwOTMiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjY1OTc3NGI0MjBlNmNhNTRkZjMyMzEzZDhlN2U5NjI1YTAyN2I2OTkiLCJpZCI6MTAxMzgwOTMsImVtYWlsIjoidGhpc2lzYWdhZ0BnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kaWphaW4yIiwidXNlcl9zbHVnIjoiYW5hbmRpamFpbjIiLCJhdmF0YXIiOiJodHRwczovL3MzLXVzLXdlc3QtMS5hbWF6b25hd3MuY29tL3MzLWxjLXVwbG9hZC9hc3NldHMvZGVmYXVsdF9hdmF0YXIuanBnIiwicmVmcmVzaGVkX2F0IjoxNjkwNjYwOTE4LCJpcCI6IjY2LjMwLjIyMy45IiwiaWRlbnRpdHkiOiI1ZjBmZjVkODc5OWVkNGMwZWQzNTVmYTQ3NGE3YmJjMiIsInNlc3Npb25faWQiOjQzNDAxNjUwLCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.Me5eiuNOTMLRcKYFfwZt9Z4-Wv77SS-aAJQnjWQzrjI; NEW_PROBLEMLIST_PAGE=1; _dd_s=rum=0&expire=1690661836912"#,
     r#"csrftoken=ulxpAvT3HarrS2exBseycxTSeojAkDgjeiReDxa4d4dv0igFvuKSp3KBeavVjYae; _ga_CDRWKZTDEX=GS1.1.1690651758.1.1.1690651783.35.0.0; _ga=GA1.1.1428573774.1690651758; _dd_s=rum=0&expire=1690652689360; messages="933207930920dd9ca86f3ebb068c06d4926043f4$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain3.\"]]"; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyMzQiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9…cy5jb20vczMtbGMtdXBsb2FkL2Fzc2V0cy9kZWZhdWx0X2F2YXRhci5qcGciLCJyZWZyZXNoZWRfYXQiOjE2OTA2NTE3NzIsImlwIjoiNjYuMzAuMjIzLjkiLCJpZGVudGl0eSI6IjM4YTE5ZGZlNWJjNWMxMWU5YmQ5YjkwNTQ0ZWZmOGE5Iiwic2Vzc2lvbl9pZCI6NDMzOTU5MzMsIl9zZXNzaW9uX2V4cGlyeSI6MTIwOTYwMH0.4GsK59MHTFITZAMpE8CJO8ohhPLJA7c4AqGGqnpVKNo; NEW_PROBLEMLIST_PAGE=1; gr_user_id=aec70933-3adb-4fcb-b50d-ed3818a46433; 87b5a3c3f1a55520_gr_session_id=6678de7d-96fb-4225-b1be-9f8a3725a4c7; 87b5a3c3f1a55520_gr_session_id_sent_vst=6678de7d-96fb-4225-b1be-9f8a3725a4c7"#,
     r#"csrftoken=Oqahqx51re9HOvQY7KL5YNxhHFTuWrAFcmNQRuOaYxBpE6WmTecLppVQla4jPmyQ; _ga_CDRWKZTDEX=GS1.1.1690651835.1.1.1690652065.6.0.0; _dd_s=rum=0&expire=1690652965722; 87b5a3c3f1a55520_gr_session_id=c6b4daec-3577-4c9b-b250-d08d1094bf36; 87b5a3c3f1a55520_gr_session_id_sent_vst=c6b4daec-3577-4c9b-b250-d08d1094bf36; _ga=GA1.1.994671939.1690651835; _gid=GA1.2.1983051490.1690651835; gr_user_id=1ac9ed3f-509a-4d3a-9935-3c1d17291d8f; _gat=1; NEW_PROBLEMLIST_PAGE=1; LEETCODE_SESSION=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJfYXV0aF91c2VyX2lkIjoiMTAxMzgyNDUiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJkamFuZ28uY29udHJpYi5hdXRoLmJhY2tlbmRzLk1vZGVsQmFja2VuZCIsIl9hdXRoX3VzZXJfaGFzaCI6IjQ3NTBlYzQ2ODIwYmY5YzU4NDYzZTFjMmE1MGZjYzA3MTViNGM2ZWIiLCJpZCI6MTAxMzgyNDUsImVtYWlsIjoib25lb2ZtYW55bWFnbnVtb3BhaUBnbWFpbC5jb20iLCJ1c2VybmFtZSI6ImFuYW5kaWphaW40IiwidXNlcl9zbHVnIjoiYW5hbmRpamFpbjQiLCJhdmF0YXIiOiJodHRwczovL3MzLXVzLXdlc3QtMS5hbWF6b25hd3MuY29tL3MzLWxjLXVwbG9hZC9hc3NldHMvZGVmYXVsdF9hdmF0YXIuanBnIiwicmVmcmVzaGVkX2F0IjoxNjkwNjUxOTA0LCJpcCI6IjY2LjMwLjIyMy45IiwiaWRlbnRpdHkiOiJmMjczZGFkMTI4OWI3YmZkMWE5YmU2Mzc2ODEzYjkyMiIsInNlc3Npb25faWQiOjQzMzk2MDM5LCJfc2Vzc2lvbl9leHBpcnkiOjEyMDk2MDB9.dE59RL0s1UYma1BqV273wyDVCt7JnaSaNMqHB375_ck; messages="bb0c0d208dc7c09f59ec1e3384ed885072da2eff$[[\"__json_message\"\0540\05425\054\"Successfully signed in as anandijain4.\"]]""#,
@@ -434,14 +437,16 @@ fn get_code(title_slug: &str) -> Result<CodeRoot, serde_json::Error> {
 //     Ok(prompt_json.data.question.content)
 // }
 
-
 // fn get_code_snippets(data: &CodeRoot) -> Vec<CodeSnippet> {
 //     // Navigate to the 'codeSnippets' field.
 //     data.data.question.code_snippets
 //     // data.get("data")?.get("question")?.get("codeSnippets")
 // }
 
-fn get_code_for_lang(code_snippets: &Vec<CodeSnippet>, lang: &str) -> Result<String, Box<dyn Error>> {
+fn get_code_for_lang(
+    code_snippets: &Vec<CodeSnippet>,
+    lang: &str,
+) -> Result<String, Box<dyn Error>> {
     code_snippets
         .iter()
         .find(|&s| s.lang_slug == lang)
@@ -963,7 +968,8 @@ async fn submit_and_check(
             }
         } else {
             if sub.contains(RATE_LIMIT_STR) {
-                panic!("Rate limit exceeded");
+                // panic!("Rate limit exceeded");
+                sleep(std::time::Duration::from_secs(86400));
             }
         }
     }
@@ -1039,7 +1045,8 @@ async fn submit_all_solutions(
                         //     get_cookie_string_from_index(&df, cookie_idx).await.unwrap();
 
                         // panic!("Rate limit exceeded. TODO add swap cookie ");
-                        println!("Rate limit exceeded. New cookie_idx: {}", cookie_idx);
+                        println!("Rate limit exceeded. Sleeping for a day");
+                        sleep(std::time::Duration::from_secs(86400));
                     }
                 }
             }
@@ -1049,35 +1056,60 @@ async fn submit_all_solutions(
     Ok(())
 }
 
-async fn get_cookie_string(username: &str, password: &str) -> Result<String, WebDriverError> {
-    let driver = WebDriver::new("http://localhost:9515", DesiredCapabilities::chrome()).await?;
-
-    // Navigate to URL.
+async fn get_cookie_string(
+    driver: &WebDriver,
+    username: &str,
+    password: &str,
+) -> Result<String, WebDriverError> {
     driver.goto("https://leetcode.com/accounts/login/").await?;
     sleep(std::time::Duration::from_secs(1));
-    // Find element.
     let username_field = driver.find(By::Name("login")).await?;
     let password_field = driver.find(By::Name("password")).await?;
 
-    // Type into the element.
     username_field.send_keys(username).await?;
     password_field.send_keys(password).await?;
-    // password_field.click(Key::Enter).await?;
     let signin_btn = driver.find(By::Id("signin_btn")).await?;
     sleep(std::time::Duration::from_secs(1));
     signin_btn.click().await?;
-    driver.goto("https://leetcode.com/anandjain/").await?;
+    sleep(std::time::Duration::from_secs(1));
 
-    // Get cookies
+    while driver
+        .find(By::Id("recaptcha_signin_checkbox"))
+        .await
+        .is_ok()
+    {
+        // if driver.find(By::Id("rc-imageselect")).await.is_err() {
+        //     break; // Break the loop
+        // }
+        if driver
+            .find(By::Css(
+                r#"iframe[title="recaptcha challenge expires in two minutes"]"#,
+            ))
+            .await
+            .is_err()
+        {
+            break; // Break the loop
+        }
+        sleep(std::time::Duration::from_secs(1)); // don't forget to await the sleep
+        println!(
+            "found captcha at {}",
+            Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+        );
+    }
+
+    sleep(std::time::Duration::from_secs(1));
+    signin_btn.click().await?;
+
     let cookies = driver.get_all_cookies().await?;
     let mut cookie_string = String::new();
     for cookie in cookies {
         cookie_string.push_str(&format!("{}={}; ", cookie.name(), cookie.value()));
     }
-    println!("COOKIE for {} {}: {}", username, password, cookie_string);
+    // println!("COOKIE for {} {}: {}", username, password, cookie_string);
+    println!("COOKIE for {}: {}", username, cookie_string);
 
     // Quit driver.
-    driver.quit().await?;
+    // driver.quit().await?;
 
     Ok(cookie_string)
 }
@@ -1092,31 +1124,18 @@ pub async fn main() -> Result<(), reqwest::Error> {
     // tally_statuses();
     // let cqs = get_common_questions(ALL_REAL_LANGS.to_vec());
 
-    // let model = OPENAI_GPT_MODEL;
-    // let myslug_tups_cqs = build_all_mytups(get_qs(), ALL_REAL_LANGS.to_vec(), vec![model]);
-    // println!("{}", myslug_tups_cqs.len());
+    // let mut caps = DesiredCapabilities::chrome();
+    // caps.add_chrome_arg(&format!("--user-agent={}", &USER_AGENT));
+    // let driver = WebDriver::new("http://localhost:9515", caps).await.unwrap();
+    // let cs = get_cookie_string(&driver, LEETCODE_USERNAME, LEETCODE_PASSWORD).await;
+    // println!("{}", cs.unwrap());
+    // let driver2 = WebDriver::new("http://localhost:9516", DesiredCapabilities::chrome()).await.unwrap();
+    // get_cookie_string(driver2, LEETCODE_USERNAME2, LEETCODE_PASSWORD2).await;
 
-    // submit_all_solutions(myslug_tups_cqs).await?;
-
-    let qs = get_qs();
-    let langs = ALL_REAL_LANGS.to_vec();
-    let ms = vec![OPENAI_GPT_MODEL];
-
-    let start = std::time::Instant::now();
-    let _result = build_all_mytups(qs, langs, ms);
-    let duration = start.elapsed();
-
-    println!("Time elapsed is: {:?}", duration);
-
-    // let qs = get_qs();
-    // let langs = ALL_REAL_LANGS.to_vec();
-    // let ms = vec![OPENAI_GPT_MODEL];
-
-    // let start = std::time::Instant::now();
-    // let _result = build_all_mytups_noclone(qs, langs, ms);
-    // let duration = start.elapsed();
-
-    // println!("Time elapsed noclone is: {:?}", duration);
+    let model = OPENAI_GPT_MODEL;
+    let myslug_tups_cqs = build_all_mytups(get_qs(), ALL_REAL_LANGS.to_vec(), vec![model]);
+    println!("{}", myslug_tups_cqs.len());
+    submit_all_solutions(myslug_tups_cqs).await?;
 
     // let (slug, lang, model) = &myslug_tups_cqs[0];
     // let x = submit_and_check(&slug, &lang, &model, COOKIES[1])
@@ -1127,7 +1146,6 @@ pub async fn main() -> Result<(), reqwest::Error> {
     // let cookie = get_cookie_string(&username, &password).await.unwrap();
     // get_cookie_string()
     Ok(())
-    // Ok(())
 }
 
 #[cfg(test)]
@@ -1171,6 +1189,17 @@ print('Hello, World!')
 
 // #[bench]
 // fn benchmark_myslug_tups_cqs(b: &mut Bencher) {
+
+// let qs = get_qs();
+// let langs = ALL_REAL_LANGS.to_vec();
+// let ms = vec![OPENAI_GPT_MODEL];
+
+// let start = std::time::Instant::now();
+// let _result = build_all_mytups(qs, langs, ms);
+// let duration = start.elapsed();
+
+// println!("Time elapsed is: {:?}", duration);
+
 //     let qs = get_qs();
 //     let langs = ALL_REAL_LANGS.to_vec();
 //     let ms = vec![OPENAI_GPT_MODEL];
